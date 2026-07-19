@@ -30,6 +30,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
   const [presentedHash, setPresentedHash] = useState<Hex>();
   const [fileName, setFileName] = useState("");
   const [formError, setFormError] = useState<string>();
+  const [readTimedOut, setReadTimedOut] = useState(false);
   const { data, isLoading, isError: readFailed, error: readError, refetch } = useReadContract({
     address: contractAddress,
     abi: exactDraftAbi,
@@ -48,6 +49,16 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
   useEffect(() => {
     if (isConfirmed) refetch();
   }, [isConfirmed, refetch]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setReadTimedOut(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setReadTimedOut(true), 12_000);
+    return () => window.clearTimeout(timeout);
+  }, [isLoading]);
 
   function handleFile(hash: Hex | undefined, name: string) {
     setPresentedHash(hash);
@@ -84,10 +95,14 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
 
         {!contractAddress ? (
           <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">This app is not connected to a deployed ExactDraft contract yet. Set <code>NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS</code> after deployment.</div>
-        ) : isLoading ? (
+        ) : isLoading && !readTimedOut ? (
           <div role="status" aria-live="polite" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Reading the agreement from Monad…</div>
         ) : readFailed || !agreement ? (
-          <div role="alert" className="paper-card rounded-2xl p-8 text-sm text-[#8c302c]">Could not read agreement #{agreementId} from Monad. {readError?.message ?? "Check the ID, network, and contract configuration."}</div>
+          <div role="alert" className="paper-card rounded-2xl p-8 text-sm text-[#8c302c]">
+            <p>Could not read agreement #{agreementId} from Monad.</p>
+            <p className="mt-2">{readTimedOut ? "Monad did not respond in time. Check the agreement ID, network, and contract configuration." : readError?.message ?? "Check the ID, network, and contract configuration."}</p>
+            <button type="button" onClick={() => { setReadTimedOut(false); void refetch(); }} className="mt-5 rounded-full bg-[#173d35] px-4 py-2 text-xs font-bold text-white hover:bg-[#28594d]">Retry read</button>
+          </div>
         ) : (
           <>
             <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
