@@ -36,6 +36,16 @@ NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS=<deployed-exactdraft-contract-address>
 
 Restart Next.js after changing environment variables. Without this value, the UI remains read-only and explains that the contract is not configured.
 
+## Monad testnet deployment
+
+The current public Spark hackathon deployment is live on Monad testnet:
+
+- Contract: `0x2D10621878796F3920a2B68d30C3850708F764D8`
+- Deployment transaction: [`0x88655ef486868d4c217eac5e2532d845f6803bb0a667892b9a734ccfae7f108b`](https://testnet.monadvision.com/tx/0x88655ef486868d4c217eac5e2532d845f6803bb0a667892b9a734ccfae7f108b)
+- Contract explorer: [Open ExactDraft on MonadVision](https://testnet.monadvision.com/address/0x2D10621878796F3920a2B68d30C3850708F764D8)
+
+The deployer is a temporary testnet-only account. Its private key is not part of this repository or the frontend configuration.
+
 ## Contract deployment
 
 Keep the deployer key private and fund it with Monad testnet MON. The deploy script reads the key from the environment and broadcasts to the supplied RPC:
