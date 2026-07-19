@@ -16,7 +16,7 @@ contract ExactDraft {
         address proposer;
         address counterparty;
         bytes32 fileHash;
-        string reference;
+        string referenceText;
         uint64 createdAt;
         uint64 expiresAt;
         uint64 acceptedAt;
@@ -43,7 +43,7 @@ contract ExactDraft {
         address indexed proposer,
         address indexed counterparty,
         bytes32 fileHash,
-        string reference,
+        string referenceText,
         uint64 createdAt,
         uint64 expiresAt
     );
@@ -69,12 +69,12 @@ contract ExactDraft {
     function createAgreement(
         bytes32 fileHash,
         address counterparty,
-        string calldata reference,
+        string calldata referenceText,
         uint64 expiresAt
     ) external returns (uint256 agreementId) {
         if (fileHash == bytes32(0)) revert EmptyFileHash();
         if (counterparty == address(0) || counterparty == msg.sender) revert InvalidCounterparty();
-        uint256 referenceLength = bytes(reference).length;
+        uint256 referenceLength = bytes(referenceText).length;
         if (referenceLength == 0) revert EmptyReference();
         if (referenceLength > MAX_REFERENCE_LENGTH) revert ReferenceTooLong();
         if (expiresAt <= block.timestamp) revert ExpirationMustBeInFuture();
@@ -85,7 +85,7 @@ contract ExactDraft {
                 proposer: msg.sender,
                 counterparty: counterparty,
                 fileHash: fileHash,
-                reference: reference,
+                referenceText: referenceText,
                 createdAt: uint64(block.timestamp),
                 expiresAt: expiresAt,
                 acceptedAt: 0,
@@ -98,7 +98,7 @@ contract ExactDraft {
             msg.sender,
             counterparty,
             fileHash,
-            reference,
+            referenceText,
             uint64(block.timestamp),
             expiresAt
         );

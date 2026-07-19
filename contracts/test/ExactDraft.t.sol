@@ -27,25 +27,16 @@ contract ExactDraftTest {
         uint256 agreementId = exactDraft.createAgreement(fileHash, counterparty, "contract-v1", 1_001_000);
 
         require(agreementId == 1, "agreement id should be one-based");
-        (
-            address storedProposer,
-            address storedCounterparty,
-            bytes32 storedHash,
-            string memory reference,
-            uint64 createdAt,
-            uint64 expiresAt,
-            uint64 acceptedAt,
-            ExactDraft.Status status
-        ) = exactDraft.getAgreement(agreementId);
+        ExactDraft.Agreement memory agreement = exactDraft.getAgreement(agreementId);
 
-        require(storedProposer == proposer, "proposer mismatch");
-        require(storedCounterparty == counterparty, "counterparty mismatch");
-        require(storedHash == fileHash, "hash mismatch");
-        require(keccak256(bytes(reference)) == keccak256(bytes("contract-v1")), "reference mismatch");
-        require(createdAt == 1_000_000, "created timestamp mismatch");
-        require(expiresAt == 1_001_000, "expiry mismatch");
-        require(acceptedAt == 0, "accepted timestamp should be empty");
-        require(status == ExactDraft.Status.Pending, "status should be pending");
+        require(agreement.proposer == proposer, "proposer mismatch");
+        require(agreement.counterparty == counterparty, "counterparty mismatch");
+        require(agreement.fileHash == fileHash, "hash mismatch");
+        require(keccak256(bytes(agreement.referenceText)) == keccak256(bytes("contract-v1")), "reference mismatch");
+        require(agreement.createdAt == 1_000_000, "created timestamp mismatch");
+        require(agreement.expiresAt == 1_001_000, "expiry mismatch");
+        require(agreement.acceptedAt == 0, "accepted timestamp should be empty");
+        require(agreement.status == ExactDraft.Status.Pending, "status should be pending");
     }
 
     function testOnlyCounterpartyCanAcceptAnExactHash() public {
@@ -63,9 +54,9 @@ contract ExactDraftTest {
         vm.prank(counterparty);
         exactDraft.acceptAgreement(agreementId, fileHash);
 
-        (, , , , , , uint64 acceptedAt, ExactDraft.Status status) = exactDraft.getAgreement(agreementId);
-        require(acceptedAt == 1_000_000, "accepted timestamp mismatch");
-        require(status == ExactDraft.Status.Accepted, "status should be accepted");
+        ExactDraft.Agreement memory acceptedAgreement = exactDraft.getAgreement(agreementId);
+        require(acceptedAgreement.acceptedAt == 1_000_000, "accepted timestamp mismatch");
+        require(acceptedAgreement.status == ExactDraft.Status.Accepted, "status should be accepted");
 
         vm.prank(counterparty);
         vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementNotPending.selector));
@@ -86,8 +77,8 @@ contract ExactDraftTest {
         uint256 expiredId = exactDraft.createAgreement(fileHash, counterparty, "expired", 1_000_100);
         vm.warp(1_000_100);
 
-        (, , , , , , , ExactDraft.Status status) = exactDraft.getAgreement(expiredId);
-        require(status == ExactDraft.Status.Expired, "status should be expired");
+        ExactDraft.Agreement memory expiredAgreement = exactDraft.getAgreement(expiredId);
+        require(expiredAgreement.status == ExactDraft.Status.Expired, "status should be expired");
 
         vm.prank(counterparty);
         vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementExpired.selector));
