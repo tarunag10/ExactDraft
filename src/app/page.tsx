@@ -29,7 +29,7 @@ export default function HomePage() {
           <div className="paper-card rounded-2xl p-6 sm:p-8"><CreateAgreementForm /></div>
         </section>
 
-        <section className="mt-20 border-t border-[#cfd9d0] pt-10" aria-labelledby="how-heading">
+        <section id="how-it-works" className="mt-20 border-t border-[#cfd9d0] pt-10" aria-labelledby="how-heading">
           <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mono-label text-[10px] font-bold text-[#68736d]">A small protocol for a quiet problem</p><h2 id="how-heading" className="display-font mt-2 text-4xl text-[#173d35]">Proof without custody.</h2></div><p className="max-w-sm text-right text-xs leading-5 text-[#68736d]">Built for draft exchanges where neither party should hand a copy to a third-party service.</p></div>
           <div className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-[#d5ded6] bg-[#d5ded6] md:grid-cols-3">
             <Step number="01" title="Hash locally" copy="Each holder selects their own local file. The browser calculates SHA-256 in memory." />
@@ -38,7 +38,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <footer className="mt-16 flex flex-col gap-3 border-t border-[#cfd9d0] pt-6 text-xs leading-5 text-[#68736d] sm:flex-row sm:items-start sm:justify-between"><p>ExactDraft records wallet attestations and is not itself an electronic-signature or legal-advice service.</p><p className="mono-label text-[9px]">No file upload · No backend · No database</p></footer>
+        <footer id="legal" className="mt-16 flex flex-col gap-3 border-t border-[#cfd9d0] pt-6 text-xs leading-5 text-[#68736d] sm:flex-row sm:items-start sm:justify-between"><p>ExactDraft records wallet attestations and is not itself an electronic-signature or legal-advice service.</p><p className="mono-label text-[9px]">No file upload · No backend · No database</p></footer>
       </div>
     </main>
   );
