@@ -46,6 +46,10 @@ The current public Spark hackathon deployment is live on Monad testnet:
 
 The deployer is a temporary testnet-only account. Its private key is not part of this repository or the frontend configuration.
 
+## Public demo
+
+Open the hosted hackathon demo at [exactdraft.vercel.app](https://exactdraft.vercel.app/). The Vercel deployment has the production contract address configured and is linked to this public GitHub repository.
+
 ## Contract deployment
 
 Keep the deployer key private and fund it with Monad testnet MON. The deploy script reads the key from the environment and broadcasts to the supplied RPC:
