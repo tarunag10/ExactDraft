@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { isAddress, type Hex } from "viem";
+import type { Hex } from "viem";
 import { useAccount, useChainId, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { LocalFileHash } from "@/src/components/LocalFileHash";
 import { NetworkNotice } from "@/src/components/NetworkNotice";

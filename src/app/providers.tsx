@@ -1,8 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { createConfig, http, injected, WagmiProvider } from "wagmi";
 import { monadTestnet } from "@/src/lib/monad";
 import { useState, type ReactNode } from "react";
 

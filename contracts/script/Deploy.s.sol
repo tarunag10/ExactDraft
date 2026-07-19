@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {ExactDraft} from "../src/ExactDraft.sol";
 
 interface Vm {
+    function envUint(string calldata key) external returns (uint256);
     function startBroadcast(uint256 privateKey) external;
     function stopBroadcast() external;
 }
