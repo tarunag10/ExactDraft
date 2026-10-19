@@ -354,6 +354,8 @@ function RecordCard({ agreement, status, chainId, network, contractAddress, agre
         <button type="button" onClick={() => window.print()} className="print:hidden rounded-lg border border-[#173d35] px-3 py-2 text-xs font-bold text-[#173d35] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173d35]">Print record</button>
       </div>
       <dl className="mt-8 divide-y divide-[#e1e6e0]">
+        <RecordRow label="Network" value={`${network.chain.name} (chain ${chainId})`} />
+        <RecordRow label="Contract" value={<a href={explorerAddressUrl(contractAddress, chainId)} target="_blank" rel="noreferrer" className="break-all font-mono text-xs underline underline-offset-4">{contractAddress}</a>} />
         <RecordRow label="Reference" value={agreement.reference} />
         <RecordRow label="Status" value={<StatusBadge status={status} />} />
         <RecordRow label="Proposer" value={<a href={explorerAddressUrl(agreement.proposer, chainId)} target="_blank" rel="noreferrer" className="font-mono text-xs underline underline-offset-4">{formatWallet(agreement.proposer)} ↗</a>} />
