@@ -45,10 +45,13 @@ test("only a successful matching event from the configured contract is accepted"
   assert.equal(findContractEvent(receipt("success", [{ ...createdLog, address }]), eventAbi, address, "AgreementCreated", 7n)?.args.agreementId, 7n);
 });
 
-test("pending receipt keys distinguish chains, contracts and operations", () => {
+test("pending receipt keys distinguish chains, contracts, operations and agreements", () => {
   const create = pendingTransactionKey(10143, address, "create");
   assert.notEqual(create, pendingTransactionKey(968, address, "create"));
   assert.notEqual(create, pendingTransactionKey(10143, unrelated, "create"));
   assert.notEqual(create, pendingTransactionKey(10143, address, "accept"));
   assert.notEqual(pendingTransactionKey(10143, address, "accept"), pendingTransactionKey(10143, address, "cancel"));
+  assert.notEqual(pendingTransactionKey(10143, address, "accept", "7"), pendingTransactionKey(10143, address, "accept", "8"));
+  assert.notEqual(pendingTransactionKey(10143, address, "cancel", "7"), pendingTransactionKey(10143, address, "cancel", "8"));
+  assert.equal(pendingTransactionKey(10143, address, "create", "7"), create);
 });

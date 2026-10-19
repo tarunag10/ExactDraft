@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { serializeAgreementEvidence } from "../src/lib/evidence-core.mjs";
+import { classifyTransactionFinality, mergePendingEvidenceTransactions, serializeAgreementEvidence, summarizeTransactionStatus } from "../src/lib/evidence-core.mjs";
 
 const proposer = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const counterparty = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -34,7 +34,9 @@ test("exports versioned allowlisted evidence and safely stringifies uint256 valu
   assert.equal(evidence.transactions[0].blockNumber, "9007199254740993");
   assert.equal(evidence.agreement.status, "accepted");
   assert.match(evidence.verification[1], /getAgreement/);
-  assert.match(evidence.verification[3], /locally/);
+  assert.match(evidence.verification[2], /pending transactions have no inclusion block/);
+  assert.match(evidence.verification[3], /finalized block/);
+  assert.match(evidence.verification[4], /locally/);
   assert.equal(encoded.includes(marker), false);
   assert.equal("fileBytes" in evidence.agreement, false);
 });
@@ -49,4 +51,20 @@ test("rejects invalid identities, status, and unsafe numeric serialization", () 
   assert.throws(() => serializeAgreementEvidence({ ...base, agreementId: 9_007_199_254_740_993 }), /unsafe JavaScript number/);
   assert.throws(() => serializeAgreementEvidence({ ...base, record: { ...record, status: 9 } }), /status/);
   assert.throws(() => serializeAgreementEvidence({ ...base, record: { ...record, proposer: "bad" } }), /participants/);
+});
+
+test("classifies inclusion against the RPC finalized block and reports pending evidence distinctly", () => {
+  assert.equal(classifyTransactionFinality(99n, 100n), "finalized");
+  assert.equal(classifyTransactionFinality(100n, 100n), "finalized");
+  assert.equal(classifyTransactionFinality(101n, 100n), "included");
+  assert.throws(() => classifyTransactionFinality(-1n, 100n), /negative/);
+  assert.equal(summarizeTransactionStatus([{ status: "pending" }]), "Pending — no included receipt found yet.");
+  assert.equal(summarizeTransactionStatus([{ status: "included" }]), "Included in a block — inclusion alone does not establish finality.");
+  assert.equal(summarizeTransactionStatus([{ status: "finalized" }]), "The selected RPC reports these transactions as finalized.");
+  assert.equal(summarizeTransactionStatus([{ status: "finalized" }, { status: "pending" }]), "Some transactions are included; at least one remains pending.");
+  const merged = mergePendingEvidenceTransactions(
+    [{ type: "created", hash: txHash, status: "finalized" }],
+    [{ type: "accepted", hash: `0x${"e".repeat(64)}` }, { type: "accepted", hash: txHash }],
+  );
+  assert.deepEqual(merged.map(({ type, status }) => [type, status]), [["created", "finalized"], ["accepted", "pending"]]);
 });

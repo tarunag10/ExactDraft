@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Address, Hex } from "viem";
 import { contractAddressFor } from "@/src/lib/contract";
 import { getNetworkConfig } from "@/src/lib/networks";
-import { serializeAgreementEvidence } from "@/src/lib/evidence-core.mjs";
+import { serializeAgreementEvidence, summarizeTransactionStatus } from "@/src/lib/evidence-core.mjs";
 import type { EvidenceTransaction } from "@/src/lib/evidence-core.mjs";
 
 type EvidenceRecord = {
@@ -31,23 +31,11 @@ type Props = {
   loadTransactions?: () => Promise<TransactionReference[]>;
 };
 
-function transactionStatus(transactions: TransactionReference[] = []) {
-  if (transactions.length === 0) return "No transaction status provided.";
-  const statuses = transactions.map(({ status }) => status);
-  const pending = statuses.filter((status) => status === "pending").length;
-  const included = statuses.filter((status) => status === "included" || status === "finalized").length;
-  if (pending && included) return "Some transactions are included; at least one remains pending.";
-  if (pending) return "Pending — not yet included in a block.";
-  if (statuses.every((status) => status === "finalized")) return "Transactions are marked finalized by the supplied receipt data.";
-  if (included) return "Included in a block — inclusion alone does not establish finality.";
-  return "Transaction references provided; inclusion status is unavailable.";
-}
-
 export function EvidenceExportButton({ network, contractAddress, agreementId, record, transactions, loadTransactions }: Props) {
   const [error, setError] = useState<string>();
   const [isLoading, setIsLoading] = useState(false);
   const [loadedTransactions, setLoadedTransactions] = useState<TransactionReference[]>();
-  const status = transactionStatus(loadedTransactions ?? transactions);
+  const status = summarizeTransactionStatus(loadedTransactions ?? transactions);
 
   async function downloadEvidence() {
     setError(undefined);

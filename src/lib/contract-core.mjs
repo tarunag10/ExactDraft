@@ -18,8 +18,9 @@ export function isValidAgreementIdCore(value) {
   }
 }
 
-export function pendingTransactionKey(chainId, address, operation) {
-  return `exactdraft:pending:${chainId}:${address.toLowerCase()}:${operation}`;
+export function pendingTransactionKey(chainId, address, operation, agreementId) {
+  const scope = operation === "create" ? "" : `:${agreementId}`;
+  return `exactdraft:pending:${chainId}:${address.toLowerCase()}:${operation}${scope}`;
 }
 
 export function isAgreementNotFoundError(error) {

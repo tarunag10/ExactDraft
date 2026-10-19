@@ -27,8 +27,11 @@ export function useTrackedTransaction(
   chainId: number,
   address: Address | undefined,
   operation: "create" | "accept" | "cancel",
+  agreementId?: string,
 ) {
-  const key = address ? pendingTransactionKey(chainId, address, operation) : undefined;
+  const key = address && (operation === "create" || agreementId !== undefined)
+    ? pendingTransactionKey(chainId, address, operation, agreementId)
+    : undefined;
   const restoredHash = useSyncExternalStore(
     subscribeToPendingTransactions,
     () => getStoredHash(key),

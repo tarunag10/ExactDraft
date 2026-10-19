@@ -18,6 +18,7 @@ import { getNetworkConfig } from "@/src/lib/networks";
 import { useTrackedTransaction } from "@/src/lib/useTrackedTransaction";
 import { readAgreementHistory, type AgreementCreatedLog } from "@/src/lib/agreement-history-core.mjs";
 import { findContractEvent, submitSimulatedTransaction } from "@/src/lib/transaction-core.mjs";
+import { classifyTransactionFinality, mergePendingEvidenceTransactions, type EvidenceTransaction } from "@/src/lib/evidence-core.mjs";
 
 function timestamp(value: bigint) {
   return value === 0n ? "—" : new Date(Number(value) * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -69,8 +70,8 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   const [submittedHash, setSubmittedHash] = useState<Hex>();
   const [submittedCancelHash, setSubmittedCancelHash] = useState<Hex>();
   const [isCancelling, setIsCancelling] = useState(false);
-  const receiptState = useTrackedTransaction(submittedHash, targetChainId, contractAddress, "accept");
-  const cancelReceiptState = useTrackedTransaction(submittedCancelHash, targetChainId, contractAddress, "cancel");
+  const receiptState = useTrackedTransaction(submittedHash, targetChainId, contractAddress, "accept", numericId?.toString());
+  const cancelReceiptState = useTrackedTransaction(submittedCancelHash, targetChainId, contractAddress, "cancel", numericId?.toString());
   const { data: receipt, isLoading: isConfirming } = receiptState;
   const transactionHash = receiptState.transactionHash;
   const { data: cancelReceipt, isLoading: isConfirmingCancel } = cancelReceiptState;
@@ -172,6 +173,14 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
     const deploymentBlock = BigInt(network.deploymentBlock);
     const head = await publicClient.getBlockNumber();
     if (deploymentBlock > head) throw new Error("The configured deployment block is ahead of the current chain head.");
+    let finalizedBlock: bigint;
+    try {
+      const block = await publicClient.getBlock({ blockTag: "finalized" });
+      if (block.number === null) throw new Error("The finalized block has no block number.");
+      finalizedBlock = block.number;
+    } catch {
+      throw new Error("The selected RPC could not provide a finalized block. Retry or verify the network’s finality support before exporting.");
+    }
     const eventNames = ["AgreementCreated", "AgreementAccepted", "AgreementCancelled"] as const;
     const types = ["created", "accepted", "cancelled"] as const;
     const transactionSets = await Promise.all(eventNames.map(async (eventName, index) => {
@@ -199,14 +208,24 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
         hash: log.transactionHash,
         blockNumber: log.blockNumber,
         blockHash: log.blockHash,
-        status: "included" as const,
+        status: classifyTransactionFinality(log.blockNumber, finalizedBlock),
       }));
     }));
     const transactions = transactionSets.flat();
     if (!transactions.some(({ type }) => type === "created")) throw new Error("The creation transaction could not be found from the configured deployment block.");
     if (status === "accepted" && !transactions.some(({ type }) => type === "accepted")) throw new Error("The acceptance transaction could not be found for this agreement.");
     if (status === "cancelled" && !transactions.some(({ type }) => type === "cancelled")) throw new Error("The cancellation transaction could not be found for this agreement.");
-    return transactions;
+    if ((receiptState.trackedHash && receiptState.error) || (cancelReceiptState.trackedHash && cancelReceiptState.error)) {
+      throw new Error("The selected RPC could not verify a tracked transaction. Retry before exporting complete evidence.");
+    }
+    const pendingTransactions = [];
+    if (receiptState.trackedHash && !receiptState.data && !receiptState.error) {
+      pendingTransactions.push({ type: "accepted" as const, hash: receiptState.trackedHash });
+    }
+    if (cancelReceiptState.trackedHash && !cancelReceiptState.data && !cancelReceiptState.error) {
+      pendingTransactions.push({ type: "cancelled" as const, hash: cancelReceiptState.trackedHash });
+    }
+    return mergePendingEvidenceTransactions(transactions, pendingTransactions);
   }
 
   const receiptError = receipt?.status === "reverted"
@@ -342,7 +361,7 @@ function RecordCard({ agreement, status, chainId, network, contractAddress, agre
   network: { chain: { id: number; name: string } };
   contractAddress: `0x${string}`;
   agreementId: bigint;
-  loadTransactions: () => Promise<{ type: "created" | "accepted" | "cancelled"; hash: `0x${string}`; blockNumber: bigint; blockHash?: `0x${string}`; status: "included" }[]>;
+  loadTransactions: () => Promise<(EvidenceTransaction & { type: "created" | "accepted" | "cancelled" })[]>;
 }) {
   return (
     <section id="exactdraft-print-record" className="paper-card rounded-2xl p-6 sm:p-8" aria-labelledby="record-heading">

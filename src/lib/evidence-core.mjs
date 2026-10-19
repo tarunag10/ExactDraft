@@ -1,5 +1,34 @@
 const STATUSES = new Map([[0, "pending"], [1, "accepted"], [2, "cancelled"], [3, "expired"]]);
 
+export function classifyTransactionFinality(includedBlock, finalizedBlock) {
+  const included = BigInt(includedBlock);
+  const finalized = BigInt(finalizedBlock);
+  if (included < 0n || finalized < 0n) throw new RangeError("Block numbers must not be negative.");
+  return included <= finalized ? "finalized" : "included";
+}
+
+export function mergePendingEvidenceTransactions(includedTransactions, pendingTransactions) {
+  const includedHashes = new Set(includedTransactions.map(({ hash }) => hash.toLowerCase()));
+  return [
+    ...includedTransactions,
+    ...pendingTransactions
+      .filter(({ hash }) => !includedHashes.has(hash.toLowerCase()))
+      .map((transaction) => ({ ...transaction, status: "pending" })),
+  ];
+}
+
+export function summarizeTransactionStatus(transactions = []) {
+  if (transactions.length === 0) return "No transaction status provided.";
+  const statuses = transactions.map(({ status }) => status);
+  const pending = statuses.includes("pending");
+  const included = statuses.includes("included") || statuses.includes("finalized");
+  if (pending && included) return "Some transactions are included; at least one remains pending.";
+  if (pending) return "Pending — no included receipt found yet.";
+  if (statuses.every((status) => status === "finalized")) return "The selected RPC reports these transactions as finalized.";
+  if (included) return "Included in a block — inclusion alone does not establish finality.";
+  return "Transaction references provided; inclusion status is unavailable.";
+}
+
 function decimalString(value, field, { positive = false } = {}) {
   if (typeof value === "number" && !Number.isSafeInteger(value)) {
     throw new TypeError(`${field} must not be an unsafe JavaScript number.`);
@@ -83,7 +112,8 @@ export function serializeAgreementEvidence({
     verification: [
       "Check the chain ID, contract address, and agreement ID against the intended deployment.",
       "Read getAgreement(agreementId) from the contract and compare every agreement field in this export.",
-      "Open each transaction hash in the selected chain's explorer and compare its block number and block hash.",
+      "For included or finalized transactions, compare the explorer block number and block hash; pending transactions have no inclusion block yet.",
+      "Compare each transaction block number with the selected RPC's finalized block; transactions above it are included but not finalized.",
       "To compare a document, calculate its SHA-256 digest locally and compare it with agreement.fileHash; do not upload the document.",
     ],
     limitations: [

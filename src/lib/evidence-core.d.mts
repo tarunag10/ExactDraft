@@ -6,6 +6,13 @@ export type EvidenceTransaction = {
   status?: "included" | "finalized" | "pending";
 };
 
+export function classifyTransactionFinality(includedBlock: bigint | number | string, finalizedBlock: bigint | number | string): "included" | "finalized";
+export function mergePendingEvidenceTransactions<T extends EvidenceTransaction>(
+  includedTransactions: T[],
+  pendingTransactions: Pick<T, "type" | "hash">[],
+): (T | (Pick<T, "type" | "hash"> & { status: "pending" }))[];
+export function summarizeTransactionStatus(transactions?: EvidenceTransaction[]): string;
+
 export function serializeAgreementEvidence(input: {
   network: { chainId: number; name: string };
   contractAddress: `0x${string}`;
