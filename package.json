@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:phase1": "node --test tests/phase1.test.mjs",
     "test:contract": "forge test -vvv",
     "deploy:contract": "forge script contracts/script/Deploy.s.sol:Deploy --rpc-url $MONAD_TESTNET_RPC_URL --broadcast"
   },

@@ -1,10 +1,14 @@
 import type { Hex } from "viem";
+import { isValidReferenceCore, MAX_FILE_SIZE_BYTES, MAX_REFERENCE_BYTES, sha256FileCore } from "./hash-core.mjs";
+
+export { MAX_FILE_SIZE_BYTES, MAX_REFERENCE_BYTES };
 
 export async function sha256File(file: File): Promise<Hex> {
-  const bytes = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `0x${hash}` as Hex;
+  return (await sha256FileCore(file, MAX_FILE_SIZE_BYTES)) as Hex;
+}
+
+export function isValidReference(reference: string) {
+  return isValidReferenceCore(reference, MAX_REFERENCE_BYTES);
 }
 
 export function formatHash(hash: string) {

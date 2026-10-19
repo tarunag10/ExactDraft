@@ -8,10 +8,10 @@ Move ExactDraft from a two-wallet Monad testnet demonstration to a reliable,
 privacy-conscious document comparison and acknowledgement pilot, with BOT Chain
 as an additional network. Correctness and privacy come before network expansion.
 
-The current task authorizes writing, committing and pushing this plan only.
-Begin implementation only when Tarun explicitly asks to start. No deployment,
-partner messages, funding application or use of real client documents is
-part of this planning task. Future mainnet deployment needs explicit authorization.
+Phase 1 implementation was explicitly authorized by Tarun on 2026-10-19 and is
+complete as recorded below. Do not begin Phase 2 until Tarun asks to proceed.
+No partner messages, funding application or use of real client documents is
+authorized by this plan. Future mainnet deployment needs explicit authorization.
 
 ## Baseline and product boundaries
 
@@ -309,8 +309,8 @@ meet ecosystem reward thresholds.
 
 | Phase | Status | Completion evidence |
 | --- | --- | --- |
-| Plan | Written | Documentation-only review; git diff --check passed. Commit/push evidence is recorded in Git history and the planning-task response. |
-| 1 Correctness/privacy | Not started | Awaiting instruction to begin |
+| Plan | Written | Commit `6d1363a` pushed to `origin/main`; working tree was clean. |
+| 1 Correctness/privacy | Complete | Commit/push recorded in Git history; `npm run test:phase1`, `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` passed. Browser checks exercised out-of-order hash completion, clear, 25 MB rejection, disabled submit during hashing, pending-hash unmount, accessible file label/error, and no file marker in resource URLs. |
 | 2 Transaction/configuration | Not started | Depends on Phase 1 |
 | 3 BOT testnet | Not started | Depends on Phases 1–2 and network verification |
 | 4 User workflow | Not started | Depends on testnet validation |

@@ -1,8 +1,8 @@
 # ExactDraft
 
-ExactDraft is a Spark hackathon project for verifying that two wallet holders possess the exact same document file. Each person selects their own local copy. The browser calculates SHA-256 locally, and only the resulting `bytes32` digest plus agreement metadata is written to Monad testnet.
+ExactDraft is a Spark hackathon project for comparing two local document copies and recording a wallet acknowledgement of a matching SHA-256 digest. Each person selects their own copy in the browser. Only the resulting `bytes32` digest and agreement metadata are written to Monad testnet.
 
-The document bytes never leave the browser. ExactDraft has no backend and no database.
+In the current application flow, document bytes are not uploaded and ExactDraft has no backend or database. This does not make the record confidential: the digest, wallet addresses, reference and timestamps are public and permanent onchain. A digest may reveal a match if someone already knows or can guess the document. Use an opaque reference, never a client name or confidential title. The app does not establish a wallet holder's identity, authority, possession of or reading of a file, or legal enforceability.
 
 ## Stack
 
@@ -76,13 +76,13 @@ Open `http://localhost:3000` with an injected wallet such as MetaMask. The walle
 ## Demonstration
 
 1. Connect wallet A on Monad testnet.
-2. Select a local document. Confirm the visible local SHA-256 digest and enter wallet B, a reference, and an expiry time.
+2. Select a local document up to 25 MB. Confirm the visible local SHA-256 digest and enter wallet B, an opaque reference of at most 140 UTF-8 bytes, and an expiry time.
 3. Submit the transaction. The `AgreementCreated` event gives the one-based agreement ID. Open the generated review URL or share `/agreement/<id>` with wallet B.
 4. On a separate browser/profile, connect wallet B and select its own copy of the document.
-5. An exact digest shows a strong green `Exact match` state and enables `Attest exact match`. A different file shows a red `Mismatch` state and keeps acceptance disabled.
+5. An exact digest shows a strong green `Exact match` state and enables `Attest exact match`. A different file shows a red `Mismatch` state and keeps acceptance disabled. Renaming preserves a match; editing or resaving may change the file bytes and digest.
 6. After confirmation, the review page shows the final onchain record: proposer, counterparty, digest, reference, creation/expiry/acceptance timestamps, status, wallet explorer links, and transaction explorer links.
 
-Use two actual copies of the same bytes for the green path. A renamed file still matches; changing even one byte does not.
+Use two copies of the same bytes for the green path. The comparison occurs locally in the browser. The contract permits the designated wallet to submit the already-public digest; it cannot prove that the wallet holder selected, possessed or read a file.
 
 ## Architecture
 
@@ -96,7 +96,7 @@ Local File B ──SHA-256 in browser──┘                              │
 
 `contracts/src/ExactDraft.sol` stores proposer, designated counterparty, file digest, reference, timestamps, and status. Agreement IDs are one-based. `getAgreement` computes an `Expired` read status when a pending record reaches its deadline; no backend job is needed. The contract accepts only when the caller is the designated counterparty and the presented hash matches exactly. Accepted, cancelled, and expired records cannot be accepted again.
 
-The Next.js client uses `crypto.subtle.digest("SHA-256", ...)` and never sends a `File`, `Blob`, or file bytes to a route, API, storage service, or contract. `src/lib/contract.ts` contains the frontend ABI and the real deployment address is supplied only by environment configuration.
+The Next.js client uses `crypto.subtle.digest("SHA-256", ...)` and the current application flow does not send a `File`, `Blob`, or file bytes to a route, API, storage service, or contract. `src/lib/contract.ts` contains the frontend ABI and the real deployment address is supplied only by environment configuration. File names remain in the page's local UI state to label the selected digest and are not written onchain.
 
 ## Contract interface
 
@@ -117,4 +117,4 @@ The Foundry suite covers one-based creation, metadata persistence, counterparty 
 
 ## Legal disclaimer
 
-ExactDraft records wallet attestations and a file digest. It is not itself an electronic-signature or legal-advice service. Users are responsible for deciding whether a wallet attestation is appropriate for their document and jurisdiction.
+ExactDraft records a public file digest and wallet acknowledgements. It does not establish identity, authority, possession, reading or legal enforceability, and is not itself an electronic-signature or legal-advice service. Users are responsible for deciding whether a wallet acknowledgement is appropriate for their document and jurisdiction.

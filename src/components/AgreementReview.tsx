@@ -114,7 +114,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
                   </div>
                   <StatusBadge status={status ?? "pending"} />
                 </div>
-                <p className="mt-4 max-w-xl text-sm leading-6 text-[#52625a]">Select your own local copy. ExactDraft hashes it in this browser and compares the result with the 32-byte digest registered by the proposer.</p>
+                <p className="mt-4 max-w-xl text-sm leading-6 text-[#52625a]">Select your own local copy (up to 25 MB). ExactDraft hashes it in this browser and compares it with the proposer’s registered digest. A matching digest is not proof that a wallet holder possessed or read the document.</p>
                 <div className="mt-8">
                   <LocalFileHash onHash={handleFile} label="Counterparty file" />
                 </div>
@@ -143,7 +143,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
 
               <RecordCard agreement={agreement} status={status ?? "pending"} />
             </div>
-            <p className="mt-8 text-center text-xs leading-5 text-[#68736d]">ExactDraft records wallet attestations and a file digest. It is not itself an electronic-signature service and does not provide legal advice.</p>
+            <p className="mt-8 text-center text-xs leading-5 text-[#68736d]">The digest, wallet addresses, reference, and timestamps are public onchain and may reveal a match to a known document. ExactDraft records wallet acknowledgements; it does not verify identity, authority, possession, or reading, and is not an electronic-signature service or legal advice.</p>
           </>
         )}
       </div>

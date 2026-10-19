@@ -6,7 +6,7 @@ import { useAccount, useChainId, useWaitForTransactionReceipt, useWriteContract 
 import { LocalFileHash } from "@/src/components/LocalFileHash";
 import { TransactionNotice } from "@/src/components/TransactionNotice";
 import { contractAddress, exactDraftAbi } from "@/src/lib/contract";
-import { formatHash } from "@/src/lib/hash";
+import { formatHash, isValidReference } from "@/src/lib/hash";
 import { monadTestnet } from "@/src/lib/monad";
 
 function initialExpiry() {
@@ -72,9 +72,8 @@ export function CreateAgreementForm() {
     if (!fileHash) return setFormError("Select a local document so its SHA-256 digest can be calculated.");
     if (!isAddress(counterparty)) return setFormError("Enter a valid Ethereum wallet address for the counterparty.");
     if (counterparty.toLowerCase() === address.toLowerCase()) return setFormError("The counterparty must be a different wallet.");
-    if (!reference.trim()) return setFormError("Add a short reference so both parties know which draft is being checked.");
+    if (!isValidReference(reference)) return setFormError("Enter a reference of 1–140 UTF-8 bytes. This reference is public; use an opaque code, not a client or document name.");
     if (!Number.isSafeInteger(expiryTimestamp) || expiryTimestamp <= Math.floor(Date.now() / 1000)) return setFormError("Choose an expiry time in the future.");
-    if (reference.trim().length > 140) return setFormError("Keep the reference to 140 characters or fewer.");
 
     writeContract({
       address: contractAddress,
@@ -101,11 +100,12 @@ export function CreateAgreementForm() {
         <label className="sm:col-span-2">
           <span className="mono-label mb-2 block text-[10px] font-bold text-[#68736d]">Counterparty wallet</span>
           <input className="field font-mono text-sm" value={counterparty} onChange={(event) => setCounterparty(event.target.value)} placeholder="0x…" inputMode="text" autoComplete="off" aria-describedby="counterparty-help" />
-          <span id="counterparty-help" className="mt-2 block text-xs text-[#68736d]">Only this wallet can later attest to the matching local copy.</span>
+          <span id="counterparty-help" className="mt-2 block text-xs text-[#68736d]">Only this wallet can submit the registered digest as an acknowledgement. The chain cannot verify that a file was selected.</span>
         </label>
         <label>
           <span className="mono-label mb-2 block text-[10px] font-bold text-[#68736d]">Reference</span>
-          <input className="field" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="e.g. term sheet / draft 04" maxLength={140} />
+          <input className="field" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="e.g. case-7f2a" maxLength={140} aria-describedby="reference-help" />
+          <span id="reference-help" className="mt-2 block text-xs leading-5 text-[#68736d]">Public and permanent onchain. Use an opaque code, not a client name or confidential title. Limit: 140 UTF-8 bytes.</span>
         </label>
         <label>
           <span className="mono-label mb-2 block text-[10px] font-bold text-[#68736d]">Expires at</span>
@@ -114,7 +114,7 @@ export function CreateAgreementForm() {
       </div>
 
       <div className="rounded-xl bg-[#edf1eb] px-4 py-3 text-xs leading-5 text-[#52625a]">
-        The chain will record the digest, wallets, reference, and timestamps. It will never receive the selected file.
+        The chain publicly records the digest, wallet addresses, reference, and timestamps. This app does not upload the selected file. A public digest may reveal a match if someone already knows or can guess the document.
       </div>
 
       <button type="submit" disabled={isPending || isConfirming || !isReady || isWrongNetwork || !isConnected} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-45">
