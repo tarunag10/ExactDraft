@@ -38,6 +38,17 @@ test("filters creation logs by proposer, counterparty, or either participant", a
   assert.deepEqual((await readAgreementHistory({ ...base, account: counterparty, role: "participant" })).map((item) => item.blockNumber), [1n]);
 });
 
+test("returns an empty result when the requested bounded range has no events", async () => {
+  const result = await readAgreementHistory({
+    address,
+    deploymentBlock: 12,
+    fromBlock: 12,
+    toBlock: 14,
+    getLogs: async () => [],
+  });
+  assert.deepEqual(result, []);
+});
+
 test("retries transient RPC failure only up to configured bound", async () => {
   let calls = 0;
   const waits = [];

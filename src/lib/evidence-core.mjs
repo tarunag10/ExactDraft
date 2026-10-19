@@ -80,6 +80,12 @@ export function serializeAgreementEvidence({
       status: statusName(record.status),
     },
     transactions: transactions.map(txEntry),
+    verification: [
+      "Check the chain ID, contract address, and agreement ID against the intended deployment.",
+      "Read getAgreement(agreementId) from the contract and compare every agreement field in this export.",
+      "Open each transaction hash in the selected chain's explorer and compare its block number and block hash.",
+      "To compare a document, calculate its SHA-256 digest locally and compare it with agreement.fileHash; do not upload the document.",
+    ],
     limitations: [
       "This record shows public onchain data and wallet activity; it does not establish identity, authority, possession, reading, or legal enforceability.",
       "The document itself and local filename are not included. A SHA-256 digest may still match a known document.",

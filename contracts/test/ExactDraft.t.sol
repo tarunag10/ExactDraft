@@ -85,6 +85,21 @@ contract ExactDraftTest {
         exactDraft.acceptAgreement(expiredId, fileHash);
     }
 
+    function testAcceptanceThenCancellationRaceLeavesAgreementAccepted() public {
+        vm.prank(proposer);
+        uint256 agreementId = exactDraft.createAgreement(fileHash, counterparty, "accept-wins", 1_001_000);
+
+        vm.prank(counterparty);
+        exactDraft.acceptAgreement(agreementId, fileHash);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementNotPending.selector));
+        exactDraft.cancelAgreement(agreementId);
+
+        ExactDraft.Agreement memory agreement = exactDraft.getAgreement(agreementId);
+        require(agreement.status == ExactDraft.Status.Accepted, "acceptance should win once included first");
+    }
+
     function testExpiryBoundaryIsInclusiveAndExpiredAgreementsCannotBeCancelled() public {
         vm.prank(proposer);
         uint256 agreementId = exactDraft.createAgreement(fileHash, counterparty, "expiry-boundary", 1_000_100);

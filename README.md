@@ -84,7 +84,7 @@ Open `http://localhost:3000` with an injected wallet such as MetaMask. The app s
 3. Submit the transaction. The `AgreementCreated` event gives the one-based agreement ID. Open the generated review URL or share `/agreement/<id>` with wallet B.
 4. On a separate browser/profile, connect wallet B and select its own copy of the document.
 5. An exact digest shows a strong green `Exact match` state and enables `Attest exact match`. A different file shows a red `Mismatch` state and keeps acceptance disabled. Renaming preserves a match; editing or resaving may change the file bytes and digest.
-6. After confirmation, the review page shows the onchain record: proposer, counterparty, digest, reference, creation/expiry/acceptance timestamps, status, and explorer links. The proposer can cancel a pending agreement. The home page can load role-filtered creation history from a configured deployment block; the review page can export allowlisted JSON evidence after event references are read.
+6. After confirmation, the review page shows the onchain record: proposer, counterparty, digest, reference, creation/expiry/acceptance timestamps, status, and explorer links. The proposer can cancel a pending agreement. The record can be printed from the browser, and the review page can export allowlisted JSON evidence with independent onchain comparison instructions after event references are read. The home page can load role-filtered creation history from a configured deployment block.
 
 Use two copies of the same bytes for the green path. The comparison occurs locally in the browser. The contract permits the designated wallet to submit the already-public digest; it cannot prove that the wallet holder selected, possessed or read a file.
 

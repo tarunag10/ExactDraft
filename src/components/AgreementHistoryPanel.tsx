@@ -130,7 +130,7 @@ function AgreementHistoryPanelContent({ deploymentBlock: deploymentBlockOverride
   }, [account, client, contractAddress, deploymentBlock, network, role]);
 
   const refresh = useCallback(async () => {
-    if (setupIssue || !deploymentBlock) return;
+    if (setupIssue || deploymentBlock === undefined) return;
     const id = ++requestId.current;
     setIsLoading(true);
     setError(undefined);
@@ -155,7 +155,7 @@ function AgreementHistoryPanelContent({ deploymentBlock: deploymentBlockOverride
       setVisibleCount((count) => count + ROW_PAGE_SIZE);
       return;
     }
-    if (!deploymentBlock || oldestScannedBlock === undefined || oldestScannedBlock <= deploymentBlock || isLoading) return;
+    if (deploymentBlock === undefined || oldestScannedBlock === undefined || oldestScannedBlock <= deploymentBlock || isLoading) return;
     const id = ++requestId.current;
     const end = oldestScannedBlock - 1n;
     const start = end - BLOCK_WINDOW + 1n > deploymentBlock ? end - BLOCK_WINDOW + 1n : deploymentBlock;

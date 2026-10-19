@@ -345,9 +345,14 @@ function RecordCard({ agreement, status, chainId, network, contractAddress, agre
   loadTransactions: () => Promise<{ type: "created" | "accepted" | "cancelled"; hash: `0x${string}`; blockNumber: bigint; blockHash?: `0x${string}`; status: "included" }[]>;
 }) {
   return (
-    <section className="paper-card rounded-2xl p-6 sm:p-8" aria-labelledby="record-heading">
-      <p className="mono-label text-[10px] font-bold text-[#68736d]">Final verification record</p>
-      <h2 id="record-heading" className="display-font mt-2 text-4xl text-[#173d35]">What the chain knows.</h2>
+    <section id="exactdraft-print-record" className="paper-card rounded-2xl p-6 sm:p-8" aria-labelledby="record-heading">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="mono-label text-[10px] font-bold text-[#68736d]">Final verification record</p>
+          <h2 id="record-heading" className="display-font mt-2 text-4xl text-[#173d35]">What the chain knows.</h2>
+        </div>
+        <button type="button" onClick={() => window.print()} className="print:hidden rounded-lg border border-[#173d35] px-3 py-2 text-xs font-bold text-[#173d35] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173d35]">Print record</button>
+      </div>
       <dl className="mt-8 divide-y divide-[#e1e6e0]">
         <RecordRow label="Reference" value={agreement.reference} />
         <RecordRow label="Status" value={<StatusBadge status={status} />} />
@@ -358,7 +363,9 @@ function RecordCard({ agreement, status, chainId, network, contractAddress, agre
         <RecordRow label="Expires" value={timestamp(agreement.expiresAt)} />
         <RecordRow label="Accepted" value={timestamp(agreement.acceptedAt)} />
       </dl>
-      <EvidenceExportButton network={{ chainId: network.chain.id, name: network.chain.name }} contractAddress={contractAddress} agreementId={agreementId} record={agreement} loadTransactions={loadTransactions} />
+      <div className="print:hidden">
+        <EvidenceExportButton network={{ chainId: network.chain.id, name: network.chain.name }} contractAddress={contractAddress} agreementId={agreementId} record={agreement} loadTransactions={loadTransactions} />
+      </div>
     </section>
   );
 }

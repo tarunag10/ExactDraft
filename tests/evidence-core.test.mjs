@@ -33,6 +33,8 @@ test("exports versioned allowlisted evidence and safely stringifies uint256 valu
   assert.equal(evidence.agreement.createdAt, "1800000000000000000");
   assert.equal(evidence.transactions[0].blockNumber, "9007199254740993");
   assert.equal(evidence.agreement.status, "accepted");
+  assert.match(evidence.verification[1], /getAgreement/);
+  assert.match(evidence.verification[3], /locally/);
   assert.equal(encoded.includes(marker), false);
   assert.equal("fileBytes" in evidence.agreement, false);
 });
