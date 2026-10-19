@@ -49,9 +49,21 @@ The current public Spark hackathon deployment is live on Monad testnet:
 
 The deployer is a temporary testnet-only account. Its private key is not part of this repository or the frontend configuration.
 
+## BOT Chain testnet deployment
+
+The BOT Chain testnet deployment (chain ID `968`) is live and source-verified:
+
+- Contract: `0x56a0d7414c950572032b3d434b7c4d09264a3579`
+- Deployment transaction: [`0x72f12cd2152f88fc8d421b26158d8f876671e69718f8c7fdfea4960943e08bc9`](https://scan.bohr.life/tx/0x72f12cd2152f88fc8d421b26158d8f876671e69718f8c7fdfea4960943e08bc9)
+- Deployment block: `27449470`
+- [Verified contract on BOTScan](https://scan.bohr.life/address/0x56a0d7414c950572032b3d434b7c4d09264a3579?tab=contract)
+- Synthetic two-wallet pilot: agreement `1` was created and accepted in finalized transactions [`0xe7d0ff1189e4b447eb48cc232431444143e0f954d9910a075d74d4dfe31eec9b`](https://scan.bohr.life/tx/0xe7d0ff1189e4b447eb48cc232431444143e0f954d9910a075d74d4dfe31eec9b) and [`0x0f22f4796c42aa23fb8ae16d57479331c951687e04a39385ee14b1f6ea6ddce8`](https://scan.bohr.life/tx/0x0f22f4796c42aa23fb8ae16d57479331c951687e04a39385ee14b1f6ea6ddce8)
+
+The source is verified against this repository's `ExactDraft.sol`. The pilot used a synthetic digest and opaque reference; it did not upload a document. This is testnet evidence, not mainnet or production readiness.
+
 ## Public demo
 
-Open the hosted hackathon demo at [exactdraft.vercel.app](https://exactdraft.vercel.app/). The Vercel deployment has the production contract address configured and is linked to this public GitHub repository.
+Open the existing Monad testnet demo at [exactdraft.vercel.app](https://exactdraft.vercel.app/). This BOT deployment is configured for local use through `.env.example`; Vercel still needs the BOT address and deployment block added before the hosted app can use BOT Chain.
 
 ## Contract deployment
 
@@ -88,7 +100,7 @@ Open `http://localhost:3000` with an injected wallet such as MetaMask. The app s
 
 Use two copies of the same bytes for the green path. The comparison occurs locally in the browser. The contract permits the designated wallet to submit the already-public digest; it cannot prove that the wallet holder selected, possessed or read a file.
 
-For a live partner conversation, see [`partner-kit/README.md`](partner-kit/README.md). This kit distinguishes the existing Monad deployment from the pending BOT testnet deployment.
+For a live partner conversation, see [`partner-kit/README.md`](partner-kit/README.md). The kit distinguishes the existing Monad deployment, the verified BOT testnet pilot, and the remaining release gates.
 
 ## Architecture
 
@@ -97,7 +109,7 @@ Local File A ──SHA-256 in browser──┐
                                    ├── bytes32 comparison ── wallet B acceptance
 Local File B ──SHA-256 in browser──┘                              │
                                                                   ▼
-                                  Monad testnet: ExactDraft contract
+                          Monad or BOT testnet: ExactDraft contract
 ```
 
 `contracts/src/ExactDraft.sol` stores proposer, designated counterparty, file digest, reference, timestamps, and status. Agreement IDs are one-based. `getAgreement` computes an `Expired` read status when a pending record reaches its deadline; no backend job is needed. The contract accepts only when the caller is the designated counterparty and the presented hash matches exactly. Accepted, cancelled, and expired records cannot be accepted again.

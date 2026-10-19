@@ -22,9 +22,9 @@ Supported network configuration in source:
 | Network | Chain ID | RPC | Explorer | Contract address |
 | --- | ---: | --- | --- | --- |
 | Monad testnet | 10143 | `https://testnet-rpc.monad.xyz` | `https://testnet.monadvision.com` | Existing address documented in root README; verify before use |
-| BOT Chain testnet | 968 | `https://rpc.bohr.life` | `https://scan.bohr.life` | Not configured/deployed in this checkout |
+| BOT Chain testnet | 968 | `https://rpc.bohr.life` | `https://scan.bohr.life` | Deployed at `0x56a0d7414c950572032b3d434b7c4d09264a3579`, source verified; deployment block `27449470`; synthetic two-wallet pilot finalized. Vercel BOT environment still needs configuration. |
 
-BOT values are current code/documentation values, not a guarantee of present service availability. Confirm before deployment. The app reports transaction receipt inclusion as confirmed; do not describe that UI state as protocol finality.
+BOT values are current code/documentation values, not a guarantee of present service availability. Recheck RPC and explorer availability before a live session. The app reports transaction receipt inclusion as confirmed; do not describe that UI state as protocol finality.
 
 ## Trust and permission boundaries
 
@@ -50,15 +50,16 @@ No contract event or hash is a substitute for identity, authority, electronic-si
 
 ## BOT readiness gates
 
-Before calling the BOT integration deployed, record all of the following:
+Deployment and base onchain acceptance evidence now recorded:
 
-1. Confirm endpoint responds with expected `eth_chainId` and confirm explorer/faucet details from official sources or BOT staff.
-2. Deploy only the reviewed repository source using the intended Solidity version, optimizer/EVM settings, and a disposable testnet wallet.
-3. Preserve deployment transaction, receipt, address, block number, source revision, compiler metadata, and deployer identity (public address only).
-4. Verify/publish source through BOTScan or record a reproducible blocker.
-5. Configure the BOT address through `NEXT_PUBLIC_BOT_EXACTDRAFT_CONTRACT_ADDRESS`, rebuild/restart, and check that the app sees code at that address.
-6. Complete two-wallet synthetic tests on chain 968: exact match, mismatch blocked, wrong signer rejected, cancellation, expiry, reload, explorer links, and RPC/wallet recovery.
-7. Record transaction hashes and receipt statuses. Report inclusion separately from the chain’s finality guarantee.
+1. Chain ID `968` verified over `https://rpc.bohr.life`; explorer and faucet are documented at `https://scan.bohr.life` and the official BOT developer guide.
+2. The reviewed `ExactDraft.sol` source is deployed at `0x56a0d7414c950572032b3d434b7c4d09264a3579`, block `27449470`, from a disposable test wallet.
+3. Deployment receipt, source revision, Solidity `0.8.24`, optimizer settings, deploy transaction, address, and block are recorded in the root README and `CODEX_PLAN.md`.
+4. BOTScan returned `Pass - Verified` for the submitted source.
+5. BOT address/block are set in `.env.example` and local `.env.local`; the existing Vercel project still needs them before the hosted frontend can use BOT.
+6. Two separate wallets created and accepted synthetic agreement `1`; both receipts succeeded and the acceptance block was below the RPC finalized height. Unit tests cover mismatch, wrong signer, expiry, and cancellation behavior; browser and accessibility pilot checks remain open.
+
+Report transaction inclusion separately from the chain’s finality guarantee. The app UI currently reports receipt inclusion; the pilot finality check was performed independently.
 
 ## Next technical decisions
 

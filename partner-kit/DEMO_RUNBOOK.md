@@ -6,7 +6,7 @@ Show a narrow workflow: two separate wallets independently hash synthetic copies
 
 ## Current demo status
 
-The repository documents a hosted Monad testnet demo. The BOT UI route and chain configuration are present, but a BOT contract address/deployment is not present in this checkout. Until deployment and configuration are complete, use the Monad testnet flow for a live onchain walkthrough, or use the deck/source walkthrough to discuss BOT readiness. Do not claim a BOT onchain transaction has occurred.
+The repository documents a hosted Monad testnet demo. BOT contract `0x56a0d7414c950572032b3d434b7c4d09264a3579` is deployed at block `27449470` and source-verified. A synthetic BOT agreement was created and accepted by two separate wallets, with both transactions finalized. The local checkout has BOT environment values in `.env.example`; the hosted Vercel app still needs BOT configuration. Use the local app for a BOT browser walkthrough only after checking chain selection, wallet connection, contract code, and the displayed address. Do not present the current hosted Monad page as BOT-enabled.
 
 The public demo URL and configuration are documented in the root README but were not independently validated while preparing this kit. Smoke-test the exact URL, chain, and contract address immediately before a meeting.
 
@@ -17,6 +17,7 @@ The public demo URL and configuration are documented in the root README but were
 - Two synthetic files with identical bytes (e.g. `sample-agreement-v1.txt` copied byte-for-byte) and one changed copy. Avoid private or client content.
 - Opaque reference such as `DEMO-2026-01`; no names or sensitive title.
 - Check current contract address, chain selector, RPC responsiveness, wallet prompts, explorer links, and available balance before the call.
+- The prior onchain pilot agreement `1` is already accepted; make a fresh pending synthetic record for a live browser demonstration.
 - Keep the app’s limitations slide available for privacy and evidence questions.
 
 ## 8–10 minute walkthrough
@@ -43,4 +44,4 @@ Stop before asking anyone to retry a transaction repeatedly. Capture the visible
 
 ## Evidence sheet
 
-Record only synthetic test evidence: date/time, network and chain ID, public contract address, source revision, deploy transaction/block if applicable, create/accept transaction hashes, receipt state, test cases passed/failed, source-verification state, and observed RPC/wallet issues. Do not record private keys, file contents, real names, client references, or personal data.
+Record only synthetic test evidence: date/time, network and chain ID, public contract address, source revision, deploy transaction/block, create/accept transaction hashes, receipt and finality state, test cases passed/failed, source-verification state, and observed RPC/wallet issues. Do not record private keys, file contents, real names, client references, or personal data.

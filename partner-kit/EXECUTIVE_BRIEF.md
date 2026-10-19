@@ -8,17 +8,17 @@ The record is public and permanent. It does not identify a wallet holder, establ
 
 ## Why BOT Chain is a plausible fit
 
-The app already has a separate BOT Chain testnet network configuration alongside its Monad testnet deployment. A BOT testnet pilot can test whether an additional network is useful without migrating existing records or changing the Monad route. BOT-specific links are chain-scoped. The BOT contract address still needs to be deployed and configured before the BOT workflow can be used end to end.
+The app has a separate BOT Chain testnet configuration alongside its Monad testnet deployment. BOT-specific links are chain-scoped. `ExactDraft.sol` is now deployed and source-verified on BOT testnet, and a synthetic two-wallet create-and-accept transaction pair has finalized. The hosted Vercel app still needs BOT address and deployment-block settings before it can use this deployment.
 
 ## Proposed first pilot
 
 Keep the first increment small and reversible:
 
-1. Confirm testnet RPC, chain ID, explorer, token/faucet access, contract compiler settings, verification process, and receipt/finality expectations with BOT technical staff.
-2. Deploy the existing contract source to BOT testnet from a disposable test-only wallet; record the source revision, compiler settings, deploy transaction, block, and address.
-3. Verify/publish source in the explorer if supported; otherwise document the exact verification blocker.
-4. Configure the BOT test deployment and run a synthetic two-wallet walkthrough covering match, mismatch, wrong wallet, cancellation, expiry, reload, and RPC recovery.
-5. Review evidence and operational ownership before deciding whether to continue to an invited testnet cohort.
+1. Review the verified deployment, source revision, compiler settings, finality evidence, and synthetic two-wallet pilot.
+2. Configure and deploy the BOT-enabled frontend, then complete browser-level matching/mismatch, wrong-wallet, cancellation, expiry, reload, and RPC-recovery checks.
+3. Obtain independent security, privacy, and jurisdiction reviews; confirm provider terms and retention.
+4. Assign support/operations ownership, an RPC fallback, monitoring, and an incident/rollback drill.
+5. Review the evidence and written partner scope before considering an invited testnet cohort.
 
 No mainnet deployment, data migration, indexing service, confidential-document use, or reward-optimising activity is included.
 
@@ -26,10 +26,11 @@ No mainnet deployment, data migration, indexing service, confidential-document u
 
 - Existing Monad testnet contract and public demo are documented in the repository README.
 - BOT chain/provider, network-specific contract configuration, BOT review route, explorer links, and deployment chain guard are implemented.
-- Unit/contract/build/browser checks for the code path are recorded in `CODEX_PLAN.md`.
-- BOT deployment, source verification, BOT transaction evidence, and two-wallet acceptance walkthrough remain outstanding because deployer credentials and RPC deployment configuration were absent from the implementation environment.
+- BOT contract `0x56a0d7414c950572032b3d434b7c4d09264a3579` is deployed at block `27449470` and source-verified on BOTScan.
+- A synthetic two-wallet pilot created and accepted agreement `1`; both transactions finalized. Exact hashes and local verification evidence are recorded in the root README and `CODEX_PLAN.md`.
+- BOT contract address and deployment block are in `.env.example` and local `.env.local`; the existing Vercel deployment still needs these values.
 
-This is implementation readiness for a testnet deployment assessment, not a live BOT integration or production-ready release.
+This is verified testnet integration evidence, not a hosted BOT-enabled user pilot or production-ready release.
 
 ## Decisions requested from the partner
 

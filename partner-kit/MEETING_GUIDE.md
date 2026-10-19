@@ -2,13 +2,13 @@
 
 ## 30-second opening
 
-“ExactDraft is a small two-party document-integrity demo. Each person hashes their own local copy; a designated wallet can record an onchain acknowledgement only when the digest matches. We have added BOT testnet configuration alongside the existing Monad demo. We have not deployed or verified the BOT contract yet, so I’d like to use this discussion to confirm the smallest useful testnet assessment and what BOT can actually support.”
+“ExactDraft is a small two-party document-integrity demo. Each person hashes their own local copy; a designated wallet can record an onchain acknowledgement only when the digest matches. The BOT Chain testnet contract is now deployed and source-verified, and a synthetic two-wallet create-and-accept pilot finalized successfully. I’d like to use this discussion to confirm the smallest useful partner assessment and what BOT can support before any user pilot.”
 
 ## Three points to land
 
 1. **Small scope:** one existing contract, an optional second testnet, two wallets, synthetic files, and a bounded validation checklist.
 2. **Honest privacy boundary:** no file upload in the current flow, but hashes, wallet addresses, references, and timestamps are public and permanent; use opaque references and synthetic documents.
-3. **Clear gate:** BOT deployment and two-wallet evidence depend on confirmed network details, test gas, a disposable wallet, and a technical contact. A code path is not a live integration.
+3. **Clear gate:** the BOT testnet deployment and synthetic two-wallet chain flow are verified. The hosted BOT frontend, browser-level user flow, independent reviews, and operating ownership remain open.
 
 ## Questions to ask
 
@@ -31,7 +31,7 @@
 
 **Does the acknowledgement prove who signed or read the file?** No. It records a wallet’s contract call for a digest. It does not establish identity, authority, possession, reading, consent quality, or legal enforceability.
 
-**Is BOT live in the app?** BOT testnet configuration and routes are in source, but there is no BOT contract address configured here and no BOT deployment/two-wallet evidence yet.
+**Is BOT live in the app?** The BOT testnet contract is deployed and source-verified, and the synthetic onchain create-and-accept flow passed with two wallets. The existing Vercel page still targets Monad until its BOT settings are added; a browser-level partner pilot has not been completed.
 
 **Is the funding approved?** No funding or rewards should be described as approved without a specific written confirmation. Gas assistance, development funding, maintenance, user acquisition, and programme rewards are distinct.
 
