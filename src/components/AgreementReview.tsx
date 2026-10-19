@@ -9,12 +9,14 @@ import { NetworkNotice } from "@/src/components/NetworkNotice";
 import { SiteHeader } from "@/src/components/SiteHeader";
 import { StatusBadge } from "@/src/components/StatusBadge";
 import { TransactionNotice } from "@/src/components/TransactionNotice";
+import { EvidenceExportButton } from "@/src/components/EvidenceExportButton";
 import { contractAddressErrorFor, contractAddressFor, exactDraftAbi, isValidAgreementId, normalizeAgreement, statusLabel } from "@/src/lib/contract";
 import { isAgreementNotFoundError } from "@/src/lib/contract-core.mjs";
 import { formatHash, formatWallet } from "@/src/lib/hash";
 import { explorerAddressUrl } from "@/src/lib/networks";
 import { getNetworkConfig } from "@/src/lib/networks";
 import { useTrackedTransaction } from "@/src/lib/useTrackedTransaction";
+import { readAgreementHistory, type AgreementCreatedLog } from "@/src/lib/agreement-history-core.mjs";
 import { findContractEvent, submitSimulatedTransaction } from "@/src/lib/transaction-core.mjs";
 
 function timestamp(value: bigint) {
@@ -25,7 +27,7 @@ function errorMessage(error: Error | null | undefined) {
   if (!error) return undefined;
   if (error.message.toLowerCase().includes("user rejected")) return "The wallet rejected this transaction.";
   if (/insufficient funds/i.test(error.message)) return "The wallet does not have enough testnet funds for this transaction.";
-  if (/revert|contract function/i.test(error.message)) return "The contract rejected this acknowledgement. Check the agreement status, wallet and file match.";
+  if (/revert|contract function/i.test(error.message)) return "The contract rejected this action. Check the agreement status, connected wallet and action details.";
   return "Could not complete the transaction. Check your wallet network and connection, then try again.";
 }
 
@@ -39,6 +41,7 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   const [presentedHash, setPresentedHash] = useState<Hex>();
   const [fileName, setFileName] = useState("");
   const [formError, setFormError] = useState<string>();
+  const [cancelFormError, setCancelFormError] = useState<string>();
   const [readTimedOut, setReadTimedOut] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const { data: bytecode, isError: bytecodeError, isLoading: isCheckingBytecode, refetch: refetchBytecode } = useBytecode({
@@ -62,17 +65,32 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   const isExactMatch = Boolean(presentedHash && agreement && presentedHash.toLowerCase() === agreement.fileHash.toLowerCase());
   const { writeContractAsync, isPending } = useWriteContract();
   const [submittedHash, setSubmittedHash] = useState<Hex>();
+  const [submittedCancelHash, setSubmittedCancelHash] = useState<Hex>();
+  const [isCancelling, setIsCancelling] = useState(false);
   const receiptState = useTrackedTransaction(submittedHash, targetChainId, contractAddress, "accept");
+  const cancelReceiptState = useTrackedTransaction(submittedCancelHash, targetChainId, contractAddress, "cancel");
   const { data: receipt, isLoading: isConfirming } = receiptState;
   const transactionHash = receiptState.transactionHash;
+  const { data: cancelReceipt, isLoading: isConfirmingCancel } = cancelReceiptState;
+  const cancelTransactionHash = cancelReceiptState.transactionHash;
   const isConfirmed = receipt?.status === "success";
   const receiptUnresolved = Boolean(receiptState.trackedHash && !receipt && receiptState.replacement?.reason !== "cancelled");
   const hasAcceptanceEvent = Boolean(findContractEvent(receipt, exactDraftAbi, contractAddress, "AgreementAccepted", numericId));
   const acknowledgementConfirmed = isConfirmed && hasAcceptanceEvent;
+  const cancelReceiptUnresolved = Boolean(cancelReceiptState.trackedHash && !cancelReceipt && cancelReceiptState.replacement?.reason !== "cancelled");
+  const cancellationEvent = findContractEvent(cancelReceipt, exactDraftAbi, contractAddress, "AgreementCancelled", numericId);
+  const cancellationProposer = cancellationEvent?.args.proposer as string | undefined;
+  const hasCancellationEvent = Boolean(cancellationProposer && agreement && cancellationProposer.toLowerCase() === agreement.proposer.toLowerCase());
+  const cancellationConfirmed = cancelReceipt?.status === "success" && hasCancellationEvent;
+  const isProposer = Boolean(address && agreement && agreement.proposer.toLowerCase() === address.toLowerCase());
 
   useEffect(() => {
     if (acknowledgementConfirmed) refetch();
   }, [acknowledgementConfirmed, refetch]);
+
+  useEffect(() => {
+    if (cancellationConfirmed) refetch();
+  }, [cancellationConfirmed, refetch]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -119,6 +137,79 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
     }
   }
 
+  async function handleCancel() {
+    setCancelFormError(undefined);
+    if (!isConnected || !address) return setCancelFormError("Connect the proposer wallet before cancelling.");
+    if (isWrongNetwork) return setCancelFormError(`Switch your wallet to ${network.label} before cancelling.`);
+    if (!contractAddress || !numericId || !publicClient || !hasContract) return setCancelFormError(`ExactDraft contract code could not be verified on ${network.label}.`);
+    if (!agreement || status !== "pending") return setCancelFormError("This agreement is no longer pending and cannot be cancelled.");
+    if (!isProposer) return setCancelFormError("Only the proposer wallet can cancel this agreement.");
+
+    const request = {
+      address: contractAddress,
+      abi: exactDraftAbi,
+      functionName: "cancelAgreement",
+      args: [numericId],
+      account: address,
+      chainId: targetChainId,
+    } as const;
+    setIsCancelling(true);
+    try {
+      const hash = await submitSimulatedTransaction(publicClient, writeContractAsync, request);
+      setSubmittedCancelHash(undefined);
+      setSubmittedCancelHash(hash);
+    } catch (error) {
+      setCancelFormError(errorMessage(error instanceof Error ? error : undefined) ?? "Could not simulate or submit the cancellation.");
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
+  async function loadEvidenceTransactions() {
+    if (!publicClient || !contractAddress || !numericId || !agreement) throw new Error("The agreement is not ready for evidence export.");
+    if (network.deploymentBlock === undefined || !/^\d+$/.test(network.deploymentBlock)) {
+      throw new Error(`Set the verified deployment block in ${network.deploymentBlockEnvName} before exporting transaction evidence.`);
+    }
+    const deploymentBlock = BigInt(network.deploymentBlock);
+    const head = await publicClient.getBlockNumber();
+    if (deploymentBlock > head) throw new Error("The configured deployment block is ahead of the current chain head.");
+    const eventNames = ["AgreementCreated", "AgreementAccepted", "AgreementCancelled"] as const;
+    const types = ["created", "accepted", "cancelled"] as const;
+    const transactionSets = await Promise.all(eventNames.map(async (eventName, index) => {
+      const event = exactDraftAbi.find(
+        (item): item is Extract<(typeof exactDraftAbi)[number], { type: "event" }> => item.type === "event" && item.name === eventName,
+      );
+      if (!event) throw new Error(`Missing ${eventName} event definition.`);
+      const logs = await readAgreementHistory({
+        getLogs: async ({ address: target, fromBlock, toBlock }) => await publicClient.getLogs({
+          address: target,
+          event,
+          args: { agreementId: numericId },
+          fromBlock,
+          toBlock,
+        }) as unknown as AgreementCreatedLog[],
+        address: contractAddress,
+        deploymentBlock,
+        toBlock: head,
+        pageSize: 2_000,
+        maxRetries: 2,
+        retryDelayMs: 250,
+      });
+      return logs.map((log) => ({
+        type: types[index],
+        hash: log.transactionHash,
+        blockNumber: log.blockNumber,
+        blockHash: log.blockHash,
+        status: "included" as const,
+      }));
+    }));
+    const transactions = transactionSets.flat();
+    if (!transactions.some(({ type }) => type === "created")) throw new Error("The creation transaction could not be found from the configured deployment block.");
+    if (status === "accepted" && !transactions.some(({ type }) => type === "accepted")) throw new Error("The acceptance transaction could not be found for this agreement.");
+    if (status === "cancelled" && !transactions.some(({ type }) => type === "cancelled")) throw new Error("The cancellation transaction could not be found for this agreement.");
+    return transactions;
+  }
+
   const receiptError = receipt?.status === "reverted"
     ? "The transaction was mined but reverted. The acknowledgement was not recorded."
     : receiptState.error
@@ -129,6 +220,17 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   const transactionError = formError ?? receiptError ?? (isConfirmed && !hasAcceptanceEvent
     ? "Transaction confirmed without an ExactDraft acknowledgement event. Open the transaction to inspect it."
     : undefined);
+  const cancelReceiptError = cancelReceipt?.status === "reverted"
+    ? "The cancellation transaction was mined but reverted. The agreement was not cancelled."
+    : cancelReceiptState.error
+      ? errorMessage(cancelReceiptState.error)
+      : cancelReceiptState.replacement?.reason === "cancelled"
+        ? "The pending cancellation transaction was replaced by a cancellation."
+        : undefined;
+  const cancellationError = cancelFormError ?? cancelReceiptError ?? (cancelReceipt?.status === "success" && !hasCancellationEvent
+    ? "Transaction confirmed without a matching ExactDraft cancellation event. Open the transaction to inspect it."
+    : undefined);
+  const isAnyTransactionPending = isPending || isSimulating || isCancelling || isConfirming || isConfirmingCancel || receiptUnresolved || cancelReceiptUnresolved;
 
   return (
     <main className="min-h-screen">
@@ -186,7 +288,7 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
                   {!isConnected ? <p className="rounded-xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#775014]">Connect the designated counterparty wallet to accept.</p> : null}
                   {isConnected && !isCounterparty ? <p className="rounded-xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#775014]">Connected wallet {formatWallet(address)} is not the designated counterparty.</p> : null}
                   {status !== "pending" ? <p className="rounded-xl bg-[#edf1eb] px-4 py-3 text-xs font-semibold text-[#52625a]">This agreement is {status} and cannot be accepted again.</p> : null}
-                  <button type="button" onClick={handleAccept} disabled={!isExactMatch || !isCounterparty || !isConnected || isWrongNetwork || status !== "pending" || isSimulating || isPending || isConfirming || receiptUnresolved || isConfirmed} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-40">
+                  <button type="button" onClick={handleAccept} disabled={!isExactMatch || !isCounterparty || !isConnected || isWrongNetwork || status !== "pending" || isAnyTransactionPending || isConfirmed || cancellationConfirmed} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-40">
                     {isSimulating ? "Checking agreement…" : isPending ? "Confirm in wallet…" : isConfirming || receiptUnresolved ? `Waiting for ${network.chain.name}…` : "Attest exact match"}
                   </button>
                   {isWrongNetwork ? <p className="text-center text-xs font-semibold text-[#8c302c]">Wrong network — switch to {network.label} first.</p> : null}
@@ -196,9 +298,35 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
                 </div>
 
                 {acknowledgementConfirmed && transactionHash ? <div className="mt-4 rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]"><p className="font-bold">Your attestation is confirmed on {network.chain.name}.</p><TransactionNotice hash={transactionHash} chainId={targetChainId} label="Open acceptance transaction" /></div> : null}
+                <div className="mt-6 border-t border-[#e1e6e0] pt-5" aria-labelledby="cancel-heading">
+                  <h3 id="cancel-heading" className="text-sm font-black text-[#173d35]">Proposer cancellation</h3>
+                  {status === "expired" ? (
+                    <p className="mt-2 rounded-xl bg-[#edf1eb] px-4 py-3 text-xs text-[#52625a]">This agreement has expired. It can no longer be cancelled.</p>
+                  ) : status !== "pending" ? (
+                    <p className="mt-2 rounded-xl bg-[#edf1eb] px-4 py-3 text-xs text-[#52625a]">This agreement is {status}; cancellation is only available while it is pending.</p>
+                  ) : !isConnected ? (
+                    <p className="mt-2 rounded-xl bg-[#fff5dc] px-4 py-3 text-xs text-[#775014]">Connect the proposer wallet to cancel this pending agreement.</p>
+                  ) : isWrongNetwork ? (
+                    <p className="mt-2 rounded-xl bg-[#fff0ee] px-4 py-3 text-xs text-[#8c302c]">Switch to {network.label} to manage this agreement.</p>
+                  ) : !isProposer ? (
+                    <p className="mt-2 rounded-xl bg-[#fff5dc] px-4 py-3 text-xs text-[#775014]">Connected wallet {formatWallet(address)} is not the proposer. Only the proposer can cancel.</p>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-xs leading-5 text-[#68736d]">Cancelling records a permanent onchain status change. If acceptance and cancellation race, the first valid transaction included by the chain determines the result.</p>
+                      <button type="button" onClick={handleCancel} disabled={isAnyTransactionPending || isConfirmed || cancellationConfirmed} className="mt-3 w-full rounded-xl border border-[#aebbb1] bg-white px-5 py-3 text-sm font-bold text-[#173d35] hover:bg-[#edf1eb] disabled:cursor-not-allowed disabled:opacity-45">
+                        {isCancelling ? "Checking cancellation…" : isPending ? "Confirm in wallet…" : isConfirmingCancel || cancelReceiptUnresolved ? `Waiting for ${network.chain.name}…` : "Cancel pending agreement"}
+                      </button>
+                    </>
+                  )}
+                  {isWrongNetwork && status === "pending" ? <p className="mt-2 text-center text-xs font-semibold text-[#8c302c]">Wrong network — switch to {network.label} first.</p> : null}
+                  <p role="status" aria-live="polite" className="min-h-5 text-center text-xs text-[#b83f39]">{cancellationError}</p>
+                  {cancelReceiptState.error && cancelReceiptState.trackedHash ? <div className="text-center text-xs"><button type="button" onClick={() => void cancelReceiptState.refetch()} className="font-semibold underline underline-offset-4">Retry cancellation confirmation check</button> <TransactionNotice hash={cancelTransactionHash} chainId={targetChainId} label="Open pending cancellation" /></div> : null}
+                  {cancelReceipt?.status === "success" && !hasCancellationEvent ? <div role="alert" className="text-center text-xs text-[#775014]">The transaction has no matching ExactDraft cancellation event. <TransactionNotice hash={cancelTransactionHash} chainId={targetChainId} label="Inspect transaction" /></div> : null}
+                  {cancellationConfirmed && cancelTransactionHash ? <div className="mt-3 rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]"><p className="font-bold">Agreement cancellation confirmed on {network.chain.name}.</p><TransactionNotice hash={cancelTransactionHash} chainId={targetChainId} label="Open cancellation transaction" /></div> : null}
+                </div>
               </section>
 
-              <RecordCard agreement={agreement} status={status ?? "pending"} chainId={targetChainId} />
+              <RecordCard agreement={agreement} status={status ?? "pending"} chainId={targetChainId} network={network} contractAddress={contractAddress!} agreementId={numericId!} loadTransactions={loadEvidenceTransactions} />
             </div>
             <p className="mt-8 text-center text-xs leading-5 text-[#68736d]">The digest, wallet addresses, reference, and timestamps are public onchain and may reveal a match to a known document. ExactDraft records wallet acknowledgements; it does not verify identity, authority, possession, or reading, and is not an electronic-signature service or legal advice.</p>
           </>
@@ -208,7 +336,15 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   );
 }
 
-function RecordCard({ agreement, status, chainId }: { agreement: NonNullable<ReturnType<typeof normalizeAgreement>>; status: ReturnType<typeof statusLabel>; chainId: number }) {
+function RecordCard({ agreement, status, chainId, network, contractAddress, agreementId, loadTransactions }: {
+  agreement: NonNullable<ReturnType<typeof normalizeAgreement>>;
+  status: ReturnType<typeof statusLabel>;
+  chainId: number;
+  network: { chain: { id: number; name: string } };
+  contractAddress: `0x${string}`;
+  agreementId: bigint;
+  loadTransactions: () => Promise<{ type: "created" | "accepted" | "cancelled"; hash: `0x${string}`; blockNumber: bigint; blockHash?: `0x${string}`; status: "included" }[]>;
+}) {
   return (
     <section className="paper-card rounded-2xl p-6 sm:p-8" aria-labelledby="record-heading">
       <p className="mono-label text-[10px] font-bold text-[#68736d]">Final verification record</p>
@@ -223,6 +359,7 @@ function RecordCard({ agreement, status, chainId }: { agreement: NonNullable<Ret
         <RecordRow label="Expires" value={timestamp(agreement.expiresAt)} />
         <RecordRow label="Accepted" value={timestamp(agreement.acceptedAt)} />
       </dl>
+      <EvidenceExportButton network={{ chainId: network.chain.id, name: network.chain.name }} contractAddress={contractAddress} agreementId={agreementId} record={agreement} loadTransactions={loadTransactions} />
     </section>
   );
 }

@@ -9,7 +9,7 @@ export function useTrackedTransaction(
   submittedHash: Hex | undefined,
   chainId: number,
   address: Address | undefined,
-  operation: "create" | "accept",
+  operation: "create" | "accept" | "cancel",
 ) {
   const key = address ? pendingTransactionKey(chainId, address, operation) : undefined;
   const [restoredHash, setRestoredHash] = useState<Hex>();

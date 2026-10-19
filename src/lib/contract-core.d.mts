@@ -5,5 +5,5 @@ export function parseContractAddress(value: string | undefined): {
   issue: "missing" | "invalid" | undefined;
 };
 export function isValidAgreementIdCore(value: string): boolean;
-export function pendingTransactionKey(chainId: number, address: Address, operation: "create" | "accept"): string;
+export function pendingTransactionKey(chainId: number, address: Address, operation: "create" | "accept" | "cancel"): string;
 export function isAgreementNotFoundError(error: unknown): boolean;

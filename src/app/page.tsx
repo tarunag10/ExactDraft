@@ -1,4 +1,5 @@
 import { CreateAgreementForm } from "@/src/components/CreateAgreementForm";
+import { AgreementHistoryPanel } from "@/src/components/AgreementHistoryPanel";
 import { NetworkNotice } from "@/src/components/NetworkNotice";
 import { SiteHeader } from "@/src/components/SiteHeader";
 
@@ -23,11 +24,17 @@ export default function HomePage() {
           <div className="lg:sticky lg:top-8">
             <p className="mono-label text-[10px] font-bold text-[#68736d]">01 / Start an attestation</p>
             <h2 id="create-heading" className="display-font mt-3 text-5xl leading-none text-[#173d35]">Register your draft.</h2>
-            <p className="mt-5 max-w-md text-sm leading-6 text-[#52625a]">Choose a file, name the other wallet, and put a time window around the check. Your file is read only long enough to compute its digest.</p>
+            <p className="mt-5 max-w-md text-sm leading-6 text-[#52625a]">Choose a file, verify the other person’s full wallet address with them through a separate trusted channel, and set an expiry. The browser computes a SHA-256 digest locally; the file itself stays with you.</p>
+            <div className="mt-6 rounded-xl border border-[#cfd9d0] bg-[#fffefa] p-4 text-xs leading-5 text-[#52625a]">
+              <p className="font-bold text-[#173d35]">Share the file and cover testnet gas separately</p>
+              <p className="mt-2">ExactDraft records a digest and public wallet metadata; it does not send the document to the other person. Share the actual file separately using a channel you trust. Your wallet pays the testnet transaction fee in that network’s native test token. ExactDraft does not sponsor gas, and test tokens may need to be requested from a faucet.</p>
+            </div>
             <div className="mt-8 border-l-2 border-[#f3a35a] pl-4 text-xs leading-5 text-[#68736d]">The digest, wallet addresses, reference, and timestamps are public and permanent on the selected testnet. A digest may identify a known document. The onchain acknowledgement does not prove identity, authority, reading, possession, or legal enforceability.</div>
           </div>
           <div className="paper-card rounded-2xl p-6 sm:p-8"><CreateAgreementForm /></div>
         </section>
+
+        <div className="mt-10"><AgreementHistoryPanel /></div>
 
         <section id="how-it-works" className="mt-20 border-t border-[#cfd9d0] pt-10" aria-labelledby="how-heading">
           <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mono-label text-[10px] font-bold text-[#68736d]">A small protocol for a quiet problem</p><h2 id="how-heading" className="display-font mt-2 text-4xl text-[#173d35]">Proof without custody.</h2></div><p className="max-w-sm text-right text-xs leading-5 text-[#68736d]">Built for draft exchanges where neither party should hand a copy to a third-party service.</p></div>

@@ -1,6 +1,6 @@
 # ExactDraft implementation plan
 
-Status: Phases 1–2 complete; Phase 3 not started. Updated: 2026-10-19.
+Status: Phases 1–2 complete. Phase 3 implementation is present; BOT deployment validation is blocked by missing deploy access. Phase 4 implementation and Phase 5 local release preparation are present, with acceptance gates still open. Phase 6 is authorized for pursuit but blocked by external prerequisites. Updated: 2026-10-19.
 
 ## Objective and authorization
 
@@ -8,11 +8,14 @@ Move ExactDraft from a two-wallet Monad testnet demonstration to a reliable,
 privacy-conscious document comparison and acknowledgement pilot, with BOT Chain
 as an additional network. Correctness and privacy come before network expansion.
 
-Phase 1 implementation was explicitly authorized by Tarun on 2026-10-19 and is
-complete as recorded below. Phase 2 was explicitly authorized on 2026-10-19 and
-is complete. Phase 3 was explicitly authorized on 2026-10-19 and is in progress.
-No partner messages, funding application or use of real client documents is
-authorized by this plan. Future mainnet deployment needs explicit authorization.
+Phases 1–3 were explicitly authorized by Tarun on 2026-10-19. On 2026-10-19,
+Tarun explicitly asked us to pursue all remaining phases through Phase 6. This
+authorizes the implementation and preparation work described here. It does not
+provide BOT/mainnet RPC credentials, deployer keys or funds, written partner
+terms, named operators, or external security/legal approvals. No partner
+messages, funding application or use of real client documents is authorized by
+this plan. Mainnet transactions remain gated on the written scope, operational
+ownership, and deployment prerequisites in Phase 6.
 
 ## Baseline and product boundaries
 
@@ -331,10 +334,10 @@ meet ecosystem reward thresholds.
 | Plan | Written | Commit `6d1363a` pushed to `origin/main`; working tree was clean. |
 | 1 Correctness/privacy | Complete | Commit/push recorded in Git history; `npm run test:phase1`, `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` passed. Browser checks exercised out-of-order hash completion, clear, 25 MB rejection, disabled submit during hashing, pending-hash unmount, accessible file label/error, and no file marker in resource URLs. |
 | 2 Transaction/configuration | Complete | `npm run test:phase2` (6 tests), `npm run test:phase1` (3 tests), `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` (8 tests, including 256-run fuzz checks) passed. Browser smoke checks verified invalid-ID 404, missing-record classification, RPC retry, and chain-1 wallet warning with submit disabled. Future contract source rejects cancellation at/after expiry; existing immutable Monad testnet code is unchanged. |
-| 3 BOT testnet | In progress | Added BOT chain/provider, per-network RPC/explorer/address configuration, chain-scoped review routes and receipt/explorer links, and deploy chain-ID guards (only 968/10143). Official settings and live RPC identity verified; explorer verification UI located. `npm run test:phase3` (3 tests), typecheck, lint, production build, Foundry build, Phase 1/2 tests and 9 contract/deploy tests passed. Browser smoke confirmed BOT selection, scoped `/bot/agreement/1`, legacy Monad routing, and missing-address fail-closed state. Deployment, source verification and two-wallet walkthrough remain blocked because `EXACTDRAFT_DEPLOYER_PRIVATE_KEY` and `EXACTDRAFT_DEPLOY_RPC_URL` are absent locally. |
-| 4 User workflow | Not started | Depends on testnet validation |
-| 5 Release preparation | Not started | Independent/external gates remain open |
-| 6 Mainnet pilot | Not authorized | Requires explicit deployment authorization |
+| 3 BOT testnet | Implementation present; deployment blocked | Added BOT chain/provider, per-network RPC/explorer/address configuration, chain-scoped review routes and receipt/explorer links, and deploy chain-ID guards (only 968/10143). Prior verification recorded official settings and live RPC identity. Current checks confirm the local environment has no BOT contract address, deployer key, deploy RPC, verified deployment block, deployment transaction, or funded disposable wallets. This session could not reach the RPC or source explorer from the available network. Phase 3 acceptance still requires an actual BOT deployment, bytecode/source verification, two independent wallets, and transaction receipts. |
+| 4 User workflow | Implementation present; pilot acceptance blocked | Added proposer-only cancellation with simulated writes and receipt/event checks, copy/share review links, participant-filtered bounded history, deployment-block safeguards, address confirmation, and allowlisted JSON evidence export. Local history/evidence/transaction unit tests, all frontend tests, lint, typecheck, production build, and all 9 Foundry tests pass. The Phase 3 dependency is unmet; no BOT address/block is configured, and the observed two-participant walkthrough, mobile-device/wallet, timezone/expiry, and assistive-technology checks remain outstanding. |
+| 5 Release preparation | Local preparation present; release gates open | Added read-only GitHub Actions for frontend/contract checks, initial browser security headers, selected-RPC timeouts/retries, and `OPERATIONS.md`; prepared partner-facing material in `partner-kit/`. Local checks pass, but the server could not bind in this sandbox (`listen EPERM`), so runtime header/browser verification is unavailable here. npm audit could not reach registry DNS in the prior attempt. No independent security/privacy review, hosted CI run, provider/legal review, monitoring/rollback drill, named operations owner or approved budget is recorded. |
+| 6 Mainnet pilot | Authorized for pursuit; blocked by prerequisites | Tarun requested all phases, including Phase 6. No mainnet deployment was attempted. Written partner scope/terms, approved operating budget and success targets, security/privacy approvals, hosting/RPC/incident owners, mainnet RPC/deployer custody/funding, source verification and prior pilot evidence are absent. Do not onboard users or claim production readiness until these are supplied and validated. |
 
 ## Reference material
 
@@ -346,3 +349,14 @@ meet ecosystem reward thresholds.
   synthetic documents, public metadata constraints and uncommitted funding.
 
 Keep private correspondence and contact details out of public implementation artifacts.
+
+## Current local verification (2026-10-19)
+
+- `node --test tests/*.test.mjs`: 18 passed.
+- `npm run lint`: passed.
+- `npx tsc --noEmit --incremental false`: passed after the production build.
+- `npm run build`: passed; static and dynamic app routes compiled.
+- `npm run test:contract`: 9 passed, including 256-run fuzz checks. Foundry emitted a harmless warning that its global signature cache could not be written in the sandbox.
+- `git diff --check`: passed.
+- `npm start`: blocked by sandbox socket permission (`listen EPERM` on `0.0.0.0:3000`), so local HTTP header/browser verification was not completed.
+- BOT deployment, source verification, two-wallet pilot, hosted CI, independent review, operational drills, legal/partner approvals and mainnet deployment are external gates, not proven by these local checks.

@@ -50,4 +50,5 @@ test("pending receipt keys distinguish chains, contracts and operations", () => 
   assert.notEqual(create, pendingTransactionKey(968, address, "create"));
   assert.notEqual(create, pendingTransactionKey(10143, unrelated, "create"));
   assert.notEqual(create, pendingTransactionKey(10143, address, "accept"));
+  assert.notEqual(pendingTransactionKey(10143, address, "accept"), pendingTransactionKey(10143, address, "cancel"));
 });

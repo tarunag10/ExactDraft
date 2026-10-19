@@ -9,8 +9,8 @@ const config = createConfig({
   chains: [monadTestnet, botTestnet],
   connectors: [injected({ shimDisconnect: true })],
   transports: {
-    [monadTestnet.id]: http(monadTestnet.rpcUrls.default.http[0]),
-    [botTestnet.id]: http(botTestnet.rpcUrls.default.http[0]),
+    [monadTestnet.id]: http(monadTestnet.rpcUrls.default.http[0], { timeout: 10_000, retryCount: 2, retryDelay: 250 }),
+    [botTestnet.id]: http(botTestnet.rpcUrls.default.http[0], { timeout: 10_000, retryCount: 2, retryDelay: 250 }),
   },
   ssr: true,
 });

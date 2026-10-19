@@ -35,9 +35,12 @@ export function CreateAgreementForm() {
   const [fileName, setFileName] = useState("");
   const [fileHash, setFileHash] = useState<Hex>();
   const [counterparty, setCounterparty] = useState("");
+  const [counterpartyConfirmed, setCounterpartyConfirmed] = useState(false);
   const [reference, setReference] = useState("");
   const [expiresAt, setExpiresAt] = useState(initialExpiry);
   const [formError, setFormError] = useState<string>();
+  const [reviewLinkStatus, setReviewLinkStatus] = useState("");
+  const [reviewLinkFallback, setReviewLinkFallback] = useState("");
   const [agreementId, setAgreementId] = useState<string>();
   const [isSimulating, setIsSimulating] = useState(false);
   const [creationEventMissing, setCreationEventMissing] = useState(false);
@@ -54,6 +57,8 @@ export function CreateAgreementForm() {
   const receiptState = useTrackedTransaction(submittedTx?.hash, submittedTx?.chainId ?? activeChainId, submittedTx?.address ?? contractAddress, "create");
   const { data: receipt, isLoading: isConfirming } = receiptState;
   const transactionHash = receiptState.transactionHash;
+  const createdChainId = submittedTx?.chainId ?? activeChainId;
+  const createdNetwork = getNetworkConfig(createdChainId) ?? activeNetwork;
   const receiptUnresolved = Boolean(receiptState.trackedHash && !receipt && receiptState.replacement?.reason !== "cancelled");
   const isWaiting = isSimulating || isPending || isConfirming || receiptUnresolved;
 
@@ -65,7 +70,8 @@ export function CreateAgreementForm() {
   }, [receipt, submittedTx?.address, contractAddress]);
 
   const expiryTimestamp = useMemo(() => Math.floor(new Date(expiresAt).getTime() / 1000), [expiresAt]);
-  const isReady = Boolean(fileHash && counterparty && isValidReference(reference) && expiresAt && hasContract);
+  const isCounterpartyValid = isAddress(counterparty) && counterparty.toLowerCase() !== address?.toLowerCase();
+  const isReady = Boolean(fileHash && isCounterpartyValid && counterpartyConfirmed && isValidReference(reference) && expiresAt && hasContract);
 
   function handleFile(hash: Hex | undefined, name: string) {
     setFileHash(hash);
@@ -77,6 +83,8 @@ export function CreateAgreementForm() {
     event.preventDefault();
     setFormError(undefined);
     setAgreementId(undefined);
+    setReviewLinkStatus("");
+    setReviewLinkFallback("");
     setCreationEventMissing(false);
     if (!isConnected || !address) return setFormError("Connect the proposer wallet before creating an agreement.");
     if (isWrongNetwork) return setFormError("Switch your wallet to Monad or BOT Chain testnet before creating an agreement.");
@@ -85,6 +93,7 @@ export function CreateAgreementForm() {
     if (!fileHash) return setFormError("Select a local document so its SHA-256 digest can be calculated.");
     if (!isAddress(counterparty)) return setFormError("Enter a valid Ethereum wallet address for the counterparty.");
     if (counterparty.toLowerCase() === address.toLowerCase()) return setFormError("The counterparty must be a different wallet.");
+    if (!counterpartyConfirmed) return setFormError("Verify the counterparty address with them through a separate trusted channel before creating the agreement.");
     if (!isValidReference(reference)) return setFormError("Enter a reference of 1–140 UTF-8 bytes. This reference is public; use an opaque code, not a client or document name.");
     if (!Number.isSafeInteger(expiryTimestamp) || expiryTimestamp <= Math.floor(Date.now() / 1000)) return setFormError("Choose an expiry time in the future.");
 
@@ -105,6 +114,38 @@ export function CreateAgreementForm() {
       setFormError(errorMessage(error instanceof Error ? error : undefined) ?? "Could not simulate or submit this transaction.");
     } finally {
       setIsSimulating(false);
+    }
+  }
+
+  function getReviewUrl() {
+    const path = agreementId ? agreementPath(createdNetwork.slug, agreementId) : undefined;
+    return path ? new URL(path, window.location.origin).toString() : undefined;
+  }
+
+  async function handleCopyReviewLink() {
+    const url = getReviewUrl();
+    if (!url) return;
+    setReviewLinkFallback(url);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(url);
+      setReviewLinkStatus("Review link copied to clipboard.");
+    } catch {
+      setReviewLinkStatus("Could not copy automatically. Select and copy the link below.");
+    }
+  }
+
+  async function handleShareReviewLink() {
+    const url = getReviewUrl();
+    if (!url) return;
+    setReviewLinkFallback(url);
+    if (!navigator.share) return handleCopyReviewLink();
+    try {
+      await navigator.share({ title: "ExactDraft review record", url });
+      setReviewLinkStatus("Review link shared.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      await handleCopyReviewLink();
     }
   }
 
@@ -132,8 +173,12 @@ export function CreateAgreementForm() {
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="sm:col-span-2">
           <span className="mono-label mb-2 block text-[10px] font-bold text-[#68736d]">Counterparty wallet</span>
-          <input className="field font-mono text-sm" value={counterparty} onChange={(event) => setCounterparty(event.target.value)} placeholder="0x…" inputMode="text" autoComplete="off" aria-describedby="counterparty-help" />
-          <span id="counterparty-help" className="mt-2 block text-xs text-[#68736d]">Only this wallet can submit the registered digest as an acknowledgement. The chain cannot verify that a file was selected.</span>
+          <input className="field font-mono text-sm" value={counterparty} onChange={(event) => { setCounterparty(event.target.value); setCounterpartyConfirmed(false); }} placeholder="0x…" inputMode="text" autoComplete="off" aria-describedby="counterparty-help" />
+          <span id="counterparty-help" className="mt-2 block text-xs leading-5 text-[#68736d]">Only this wallet can acknowledge the record. Compare the full address and confirm it with the counterparty using a separate trusted channel before sending; a typo can send the request to the wrong wallet.</span>
+          <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-[#52625a]">
+            <input className="mt-1 accent-[#173d35]" type="checkbox" checked={counterpartyConfirmed} disabled={!isCounterpartyValid} onChange={(event) => setCounterpartyConfirmed(event.target.checked)} />
+            <span>I verified this exact counterparty address with them through a separate trusted channel.</span>
+          </label>
         </label>
         <label>
           <span className="mono-label mb-2 block text-[10px] font-bold text-[#68736d]">Reference</span>
@@ -147,7 +192,7 @@ export function CreateAgreementForm() {
       </div>
 
       <div className="rounded-xl bg-[#edf1eb] px-4 py-3 text-xs leading-5 text-[#52625a]">
-        The chain publicly records the digest, wallet addresses, reference, and timestamps. This app does not upload the selected file. A public digest may reveal a match if someone already knows or can guess the document.
+        The browser hashes the selected file locally; file bytes and filenames are not uploaded. The digest, wallet addresses, reference, and timestamps are public and permanent on the selected testnet. A public digest may reveal a match if someone already knows or can guess the document. Exchange the actual file separately through a channel you choose.
       </div>
 
       <button type="submit" disabled={isWaiting || creationEventMissing || !isReady || !isConnected || isWrongNetwork} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-45">
@@ -165,10 +210,23 @@ export function CreateAgreementForm() {
 
       {isConfirmed && transactionHash ? (
         <div className="rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]">
-          <p className="font-bold">Agreement recorded on {activeNetwork.chain.name}.</p>
+          <p className="font-bold">Agreement recorded on {createdNetwork.chain.name}.</p>
           {agreementId ? <p className="mt-1">Agreement ID: <span className="font-mono font-bold">{agreementId}</span></p> : null}
-          <TransactionNotice hash={transactionHash} chainId={activeChainId} label="Open creation transaction" />
-          {agreementId ? <a href={agreementPath(activeNetwork.slug, agreementId)} className="ml-4 font-bold underline underline-offset-4">Open review record</a> : null}
+          <TransactionNotice hash={transactionHash} chainId={createdChainId} label="Open creation transaction" />
+          {agreementId ? (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <a href={agreementPath(createdNetwork.slug, agreementId)} className="font-bold underline underline-offset-4">Open review record</a>
+              <button type="button" onClick={() => void handleCopyReviewLink()} className="font-bold underline underline-offset-4">Copy review link</button>
+              <button type="button" onClick={() => void handleShareReviewLink()} className="font-bold underline underline-offset-4">Share…</button>
+              <p role="status" aria-live="polite" className="basis-full text-xs">{reviewLinkStatus}</p>
+              {reviewLinkStatus.startsWith("Could not copy") ? (
+                <label className="basis-full text-xs text-[#52625a]">
+                  <span className="sr-only">Review link to copy</span>
+                  <input className="field mt-1 font-mono text-xs" readOnly value={reviewLinkFallback} onFocus={(event) => event.currentTarget.select()} onClick={(event) => event.currentTarget.select()} />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {creationEventMissing ? <p role="alert" className="rounded-xl bg-[#fff5dc] p-4 text-sm text-[#775014]">Transaction confirmed, but no ExactDraft creation event was found. No review link was generated. <TransactionNotice hash={transactionHash} chainId={activeChainId} label="Inspect transaction" /></p> : null}

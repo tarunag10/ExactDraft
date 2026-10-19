@@ -32,9 +32,12 @@ The app intentionally has no built-in or mock contract address. After deployment
 
 ```bash
 NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS=<deployed-exactdraft-contract-address>
+NEXT_PUBLIC_EXACTDRAFT_DEPLOYMENT_BLOCK=<verified-deployment-block-number>
+NEXT_PUBLIC_BOT_EXACTDRAFT_CONTRACT_ADDRESS=<deployed-bot-testnet-address>
+NEXT_PUBLIC_BOT_EXACTDRAFT_DEPLOYMENT_BLOCK=<verified-bot-deployment-block-number>
 ```
 
-Restart Next.js after changing environment variables. Without this value, the UI remains read-only and explains that the contract is not configured.
+Restart Next.js after changing environment variables. A missing contract address keeps writes disabled. A missing deployment block keeps history reads disabled rather than scanning from genesis. Set BOT variables only after a BOT testnet deployment has been verified.
 
 ## Monad testnet deployment
 
@@ -76,14 +79,16 @@ Open `http://localhost:3000` with an injected wallet such as MetaMask. The app s
 
 ## Demonstration
 
-1. Connect wallet A on Monad testnet.
-2. Select a local document up to 25 MB. Confirm the visible local SHA-256 digest and enter wallet B, an opaque reference of at most 140 UTF-8 bytes, and an expiry time.
+1. Connect wallet A on a configured testnet. The current connector supports injected wallet providers; on mobile, open ExactDraft inside the wallet’s in-app browser. A standalone mobile browser without an injected provider is not supported.
+2. Select a synthetic local document up to 25 MB. Confirm the visible local SHA-256 digest, enter wallet B, verify the full address with them through a separate trusted channel, confirm the address, enter an opaque reference of at most 140 UTF-8 bytes, and choose an expiry time.
 3. Submit the transaction. The `AgreementCreated` event gives the one-based agreement ID. Open the generated review URL or share `/agreement/<id>` with wallet B.
 4. On a separate browser/profile, connect wallet B and select its own copy of the document.
 5. An exact digest shows a strong green `Exact match` state and enables `Attest exact match`. A different file shows a red `Mismatch` state and keeps acceptance disabled. Renaming preserves a match; editing or resaving may change the file bytes and digest.
-6. After confirmation, the review page shows the final onchain record: proposer, counterparty, digest, reference, creation/expiry/acceptance timestamps, status, wallet explorer links, and transaction explorer links.
+6. After confirmation, the review page shows the onchain record: proposer, counterparty, digest, reference, creation/expiry/acceptance timestamps, status, and explorer links. The proposer can cancel a pending agreement. The home page can load role-filtered creation history from a configured deployment block; the review page can export allowlisted JSON evidence after event references are read.
 
 Use two copies of the same bytes for the green path. The comparison occurs locally in the browser. The contract permits the designated wallet to submit the already-public digest; it cannot prove that the wallet holder selected, possessed or read a file.
+
+For a live partner conversation, see [`partner-kit/README.md`](partner-kit/README.md). This kit distinguishes the existing Monad deployment from the pending BOT testnet deployment.
 
 ## Architecture
 
@@ -113,8 +118,17 @@ Events are `AgreementCreated`, `AgreementAccepted`, and `AgreementCancelled`. Th
 ## Tests
 
 ```bash
+npm run lint
+npx tsc --noEmit
+npm run test:phase1
+npm run test:phase2
+npm run test:phase3
+node --test tests/agreement-history.test.mjs tests/evidence-core.test.mjs
 npm run test:contract
+npm run build
 ```
+
+GitHub Actions runs the same frontend regression checks and Foundry suite without deployment credentials.
 
 The Foundry suite covers one-based creation, metadata persistence, counterparty authorization, exact-hash matching, accepted/cancelled/expired replay protection, proposer-only cancellation, and invalid input reverts.
 

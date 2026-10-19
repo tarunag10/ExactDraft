@@ -29,6 +29,8 @@ export type NetworkConfig = {
   label: string;
   contractAddress: `0x${string}` | undefined;
   contractEnvName: string;
+  deploymentBlock: string | undefined;
+  deploymentBlockEnvName: string;
 };
 
 export const networkConfigs: Record<SupportedChainId, NetworkConfig> = {
@@ -39,6 +41,8 @@ export const networkConfigs: Record<SupportedChainId, NetworkConfig> = {
     label: "Monad testnet",
     contractAddress: process.env.NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS as `0x${string}` | undefined,
     contractEnvName: "NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS",
+    deploymentBlock: process.env.NEXT_PUBLIC_EXACTDRAFT_DEPLOYMENT_BLOCK,
+    deploymentBlockEnvName: "NEXT_PUBLIC_EXACTDRAFT_DEPLOYMENT_BLOCK",
   },
   [botTestnet.id]: {
     chain: botTestnet,
@@ -47,6 +51,8 @@ export const networkConfigs: Record<SupportedChainId, NetworkConfig> = {
     label: "BOT Chain testnet",
     contractAddress: process.env.NEXT_PUBLIC_BOT_EXACTDRAFT_CONTRACT_ADDRESS as `0x${string}` | undefined,
     contractEnvName: "NEXT_PUBLIC_BOT_EXACTDRAFT_CONTRACT_ADDRESS",
+    deploymentBlock: process.env.NEXT_PUBLIC_BOT_EXACTDRAFT_DEPLOYMENT_BLOCK,
+    deploymentBlockEnvName: "NEXT_PUBLIC_BOT_EXACTDRAFT_DEPLOYMENT_BLOCK",
   },
 };
 
