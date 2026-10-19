@@ -10,7 +10,7 @@ as an additional network. Correctness and privacy come before network expansion.
 
 Phase 1 implementation was explicitly authorized by Tarun on 2026-10-19 and is
 complete as recorded below. Phase 2 was explicitly authorized on 2026-10-19 and
-is complete. Do not begin Phase 3 until Tarun asks to proceed.
+is complete. Phase 3 was explicitly authorized on 2026-10-19 and is in progress.
 No partner messages, funding application or use of real client documents is
 authorized by this plan. Future mainnet deployment needs explicit authorization.
 
@@ -324,7 +324,7 @@ meet ecosystem reward thresholds.
 | Plan | Written | Commit `6d1363a` pushed to `origin/main`; working tree was clean. |
 | 1 Correctness/privacy | Complete | Commit/push recorded in Git history; `npm run test:phase1`, `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` passed. Browser checks exercised out-of-order hash completion, clear, 25 MB rejection, disabled submit during hashing, pending-hash unmount, accessible file label/error, and no file marker in resource URLs. |
 | 2 Transaction/configuration | Complete | `npm run test:phase2` (6 tests), `npm run test:phase1` (3 tests), `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` (8 tests, including 256-run fuzz checks) passed. Browser smoke checks verified invalid-ID 404, missing-record classification, RPC retry, and chain-1 wallet warning with submit disabled. Future contract source rejects cancellation at/after expiry; existing immutable Monad testnet code is unchanged. |
-| 3 BOT testnet | Not started | Depends on Phases 1–2 and network verification |
+| 3 BOT testnet | In progress | Added BOT chain/provider, per-network RPC/explorer/address configuration, chain-scoped review routes and receipt/explorer links, and deploy chain-ID guards (only 968/10143). Official BOT docs list chain ID 968, RPC `https://rpc.bohr.life`, native token BOT, explorer `https://scan.bohr.life`; live `eth_chainId` returned `0x3c8`. `npm run test:phase3` (2 tests), typecheck, lint, production build, Foundry build, Phase 1/2 tests and 8 contract tests passed. Browser smoke confirmed BOT selection, scoped `/bot/agreement/1`, and missing-address fail-closed state. Deployment and two-wallet walkthrough remain blocked because `EXACTDRAFT_DEPLOYER_PRIVATE_KEY` and `EXACTDRAFT_DEPLOY_RPC_URL` are absent locally. |
 | 4 User workflow | Not started | Depends on testnet validation |
 | 5 Release preparation | Not started | Independent/external gates remain open |
 | 6 Mainnet pilot | Not authorized | Requires explicit deployment authorization |

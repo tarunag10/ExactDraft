@@ -12,7 +12,7 @@ export default function HomePage() {
           <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border-[28px] border-[#d9ff78]/20" aria-hidden="true" />
           <div className="absolute -bottom-36 right-24 h-72 w-72 rounded-full border-[1px] border-[#f3a35a]/40" aria-hidden="true" />
           <div className="relative max-w-3xl">
-            <p className="mono-label text-[10px] font-bold text-[#d9ff78]">Spark hackathon / Monad testnet</p>
+            <p className="mono-label text-[10px] font-bold text-[#d9ff78]">ExactDraft / supported testnet</p>
             <h1 className="display-font mt-5 text-6xl leading-[0.9] tracking-[-0.06em] sm:text-8xl">Same file.<br /><span className="text-[#d9ff78]">Two attestations.</span></h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-[#dcebe0] sm:text-lg">Compare two local document copies and record each wallet’s acknowledgement of the same file digest. This app does not upload the document.</p>
             <div className="mt-8 flex flex-wrap gap-2 text-xs font-bold text-[#173d35]"><span className="rounded-full bg-[#d9ff78] px-3 py-1.5">Local SHA-256</span><span className="rounded-full bg-[#f3a35a] px-3 py-1.5">bytes32 onchain</span><span className="rounded-full bg-white/90 px-3 py-1.5">No backend</span></div>
@@ -24,7 +24,7 @@ export default function HomePage() {
             <p className="mono-label text-[10px] font-bold text-[#68736d]">01 / Start an attestation</p>
             <h2 id="create-heading" className="display-font mt-3 text-5xl leading-none text-[#173d35]">Register your draft.</h2>
             <p className="mt-5 max-w-md text-sm leading-6 text-[#52625a]">Choose a file, name the other wallet, and put a time window around the check. Your file is read only long enough to compute its digest.</p>
-            <div className="mt-8 border-l-2 border-[#f3a35a] pl-4 text-xs leading-5 text-[#68736d]">The digest, wallet addresses, reference, and timestamps are public and permanent on Monad. A digest may identify a known document. The onchain acknowledgement does not prove identity, authority, reading, possession, or legal enforceability.</div>
+            <div className="mt-8 border-l-2 border-[#f3a35a] pl-4 text-xs leading-5 text-[#68736d]">The digest, wallet addresses, reference, and timestamps are public and permanent on the selected testnet. A digest may identify a known document. The onchain acknowledgement does not prove identity, authority, reading, possession, or legal enforceability.</div>
           </div>
           <div className="paper-card rounded-2xl p-6 sm:p-8"><CreateAgreementForm /></div>
         </section>

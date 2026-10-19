@@ -1,28 +1,14 @@
-import { defineChain } from "viem";
+// Legacy Monad URLs and callers remain mapped to the original deployment.
+export { monadTestnet } from "./networks";
+import { explorerAddressUrl as networkAddressUrl, explorerTxUrl as networkTxUrl, monadTestnet } from "./networks";
 
-export const monadTestnet = defineChain({
-  id: 10143,
-  name: "Monad Testnet",
-  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
-  rpcUrls: {
-    default: { http: ["https://testnet-rpc.monad.xyz"] },
-  },
-  blockExplorers: {
-    default: {
-      name: "MonadVision",
-      url: "https://testnet.monadvision.com",
-    },
-  },
-  testnet: true,
-});
-
-export const MONAD_RPC_URL = "https://testnet-rpc.monad.xyz";
-export const MONAD_EXPLORER_URL = "https://testnet.monadvision.com";
+export const MONAD_RPC_URL = monadTestnet.rpcUrls.default.http[0];
+export const MONAD_EXPLORER_URL = monadTestnet.blockExplorers.default.url;
 
 export function explorerTxUrl(hash: string) {
-  return `${MONAD_EXPLORER_URL}/tx/${hash}`;
+  return networkTxUrl(hash, monadTestnet.id)!;
 }
 
 export function explorerAddressUrl(address: string) {
-  return `${MONAD_EXPLORER_URL}/address/${address}`;
+  return networkAddressUrl(address, monadTestnet.id)!;
 }

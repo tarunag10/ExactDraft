@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ExactDraft — same file, independently verified",
-  description: "A local-first document hash attestation on Monad testnet.",
+  description: "A local-first document hash attestation on supported testnets.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

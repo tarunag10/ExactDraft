@@ -9,8 +9,9 @@
     "lint": "eslint .",
     "test:phase1": "node --test tests/phase1.test.mjs",
     "test:phase2": "node --test tests/phase2.test.mjs tests/transaction-core.test.mjs",
+    "test:phase3": "node --test tests/network-config.test.mjs",
     "test:contract": "forge test -vvv",
-    "deploy:contract": "forge script contracts/script/Deploy.s.sol:Deploy --rpc-url $MONAD_TESTNET_RPC_URL --broadcast"
+    "deploy:contract": "forge script contracts/script/Deploy.s.sol:Deploy --rpc-url $EXACTDRAFT_DEPLOY_RPC_URL --broadcast"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.8",

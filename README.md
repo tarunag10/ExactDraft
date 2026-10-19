@@ -52,18 +52,19 @@ Open the hosted hackathon demo at [exactdraft.vercel.app](https://exactdraft.ver
 
 ## Contract deployment
 
-Keep the deployer key private and fund it with Monad testnet MON. The deploy script reads the key from the environment and broadcasts to the supplied RPC:
+Keep the deployer key private and fund it with the selected testnet's native token. The deploy script reads the key from the environment and broadcasts only to the RPC you explicitly supply. For BOT Chain testnet:
 
 ```bash
-export MONAD_TESTNET_RPC_URL=https://testnet-rpc.monad.xyz
-export MONAD_TESTNET_PRIVATE_KEY=<private-key-without-0x>
+export EXACTDRAFT_DEPLOY_RPC_URL=https://rpc.bohr.life
+export EXACTDRAFT_DEPLOY_CHAIN_ID=968
+export EXACTDRAFT_DEPLOYER_PRIVATE_KEY=<disposable-testnet-private-key-without-0x>
 
 forge script contracts/script/Deploy.s.sol:Deploy \
-  --rpc-url "$MONAD_TESTNET_RPC_URL" \
+  --rpc-url "$EXACTDRAFT_DEPLOY_RPC_URL" \
   --broadcast
 ```
 
-Copy the deployed `ExactDraft` address into `NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS`. The address is intentionally a deployment-time placeholder in this README only; no placeholder blockchain value is used by the application.
+Copy the deployed `ExactDraft` address into `NEXT_PUBLIC_BOT_EXACTDRAFT_CONTRACT_ADDRESS` for BOT testnet or `NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS` for Monad testnet. The app configuration keeps the two deployments separate. Never use a mainnet key or RPC with this command.
 
 ## Development
 
@@ -71,7 +72,7 @@ Copy the deployed `ExactDraft` address into `NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADD
 npm run dev
 ```
 
-Open `http://localhost:3000` with an injected wallet such as MetaMask. The wallet must be connected to Monad testnet. The app prompts for a network switch and reports rejected wallet connections, wrong-network state, transaction failures, and pending confirmations.
+Open `http://localhost:3000` with an injected wallet such as MetaMask. The app supports Monad testnet and BOT Chain testnet; each chain needs its own deployed contract address configured. The active testnet and explorer appear in the header. Legacy Monad review links remain `/agreement/<id>`; BOT review links use `/bot/agreement/<id>`.
 
 ## Demonstration
 

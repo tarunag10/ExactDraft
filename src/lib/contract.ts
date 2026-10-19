@@ -1,7 +1,27 @@
 import type { Address } from "viem";
 import { isValidAgreementIdCore, parseContractAddress } from "./contract-core.mjs";
+import { getNetworkConfig, monadTestnet } from "./networks";
 
-const configured = parseContractAddress(process.env.NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS);
+export function getContractConfig(chainId: number) {
+  const network = getNetworkConfig(chainId);
+  if (!network) return { address: undefined, issue: "unsupported" as const };
+  return parseContractAddress(network.contractAddress);
+}
+
+export function contractAddressFor(chainId: number): Address | undefined {
+  const configured = getContractConfig(chainId);
+  return configured.issue ? undefined : configured.address;
+}
+
+export function contractAddressErrorFor(chainId: number): string | undefined {
+  const configured = getContractConfig(chainId);
+  if (configured.issue === "missing") return "Contract address is not configured.";
+  if (configured.issue === "invalid") return "Configured contract address is invalid or is the zero address.";
+  if (configured.issue === "unsupported") return "This network is not supported.";
+  return undefined;
+}
+
+const configured = getContractConfig(monadTestnet.id);
 
 export const contractAddress: Address | undefined = configured.address;
 

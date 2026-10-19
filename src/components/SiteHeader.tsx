@@ -4,9 +4,13 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { WalletButton } from "@/src/components/WalletButton";
+import { useAccount } from "wagmi";
+import { getNetworkConfig, monadTestnet } from "@/src/lib/networks";
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { chainId } = useAccount();
+  const activeNetwork = getNetworkConfig(chainId ?? monadTestnet.id) ?? getNetworkConfig(monadTestnet.id)!;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -39,8 +43,8 @@ export function SiteHeader() {
         </Link>
       </div>
       <div className="flex items-center gap-4">
-        <a href="https://testnet.monadvision.com" target="_blank" rel="noreferrer" className="hidden text-xs font-semibold text-[#68736d] hover:text-[#173d35] sm:block">
-          Monad testnet ↗
+        <a href={activeNetwork.explorerUrl} target="_blank" rel="noreferrer" className="hidden text-xs font-semibold text-[#68736d] hover:text-[#173d35] sm:block">
+          {activeNetwork.label} ↗
         </a>
         <WalletButton />
       </div>
@@ -55,8 +59,8 @@ export function SiteHeader() {
         <Link href="/#how-it-works" onClick={closeMenu} className="block rounded-xl px-4 py-3 text-sm font-bold text-[#173d35] hover:bg-[#edf1eb]">
           How ExactDraft works
         </Link>
-        <a href="https://testnet.monadvision.com" target="_blank" rel="noreferrer" onClick={closeMenu} className="block rounded-xl px-4 py-3 text-sm font-bold text-[#173d35] hover:bg-[#edf1eb]">
-          Monad testnet ↗
+        <a href={activeNetwork.explorerUrl} target="_blank" rel="noreferrer" onClick={closeMenu} className="block rounded-xl px-4 py-3 text-sm font-bold text-[#173d35] hover:bg-[#edf1eb]">
+          {activeNetwork.label} explorer ↗
         </a>
         <Link href="/#legal" onClick={closeMenu} className="block rounded-xl px-4 py-3 text-sm font-bold text-[#173d35] hover:bg-[#edf1eb]">
           Legal disclaimer

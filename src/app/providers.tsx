@@ -2,14 +2,15 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createConfig, http, injected, WagmiProvider } from "wagmi";
-import { monadTestnet } from "@/src/lib/monad";
+import { botTestnet, monadTestnet } from "@/src/lib/networks";
 import { useState, type ReactNode } from "react";
 
 const config = createConfig({
-  chains: [monadTestnet],
+  chains: [monadTestnet, botTestnet],
   connectors: [injected({ shimDisconnect: true })],
   transports: {
     [monadTestnet.id]: http(monadTestnet.rpcUrls.default.http[0]),
+    [botTestnet.id]: http(botTestnet.rpcUrls.default.http[0]),
   },
   ssr: true,
 });

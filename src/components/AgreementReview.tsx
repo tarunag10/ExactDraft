@@ -9,10 +9,11 @@ import { NetworkNotice } from "@/src/components/NetworkNotice";
 import { SiteHeader } from "@/src/components/SiteHeader";
 import { StatusBadge } from "@/src/components/StatusBadge";
 import { TransactionNotice } from "@/src/components/TransactionNotice";
-import { contractAddress, contractAddressError, exactDraftAbi, isValidAgreementId, normalizeAgreement, statusLabel } from "@/src/lib/contract";
+import { contractAddressErrorFor, contractAddressFor, exactDraftAbi, isValidAgreementId, normalizeAgreement, statusLabel } from "@/src/lib/contract";
 import { isAgreementNotFoundError } from "@/src/lib/contract-core.mjs";
 import { formatHash, formatWallet } from "@/src/lib/hash";
-import { explorerAddressUrl, monadTestnet } from "@/src/lib/monad";
+import { explorerAddressUrl } from "@/src/lib/networks";
+import { getNetworkConfig } from "@/src/lib/networks";
 import { useTrackedTransaction } from "@/src/lib/useTrackedTransaction";
 import { findContractEvent, submitSimulatedTransaction } from "@/src/lib/transaction-core.mjs";
 
@@ -23,15 +24,18 @@ function timestamp(value: bigint) {
 function errorMessage(error: Error | null | undefined) {
   if (!error) return undefined;
   if (error.message.toLowerCase().includes("user rejected")) return "The wallet rejected this transaction.";
-  if (/insufficient funds/i.test(error.message)) return "The wallet does not have enough MON for this transaction.";
+  if (/insufficient funds/i.test(error.message)) return "The wallet does not have enough testnet funds for this transaction.";
   if (/revert|contract function/i.test(error.message)) return "The contract rejected this acknowledgement. Check the agreement status, wallet and file match.";
   return "Could not complete the transaction. Check your wallet network and connection, then try again.";
 }
 
-export function AgreementReview({ agreementId }: { agreementId: string }) {
+export function AgreementReview({ agreementId, targetChainId }: { agreementId: string; targetChainId: number }) {
+  const network = getNetworkConfig(targetChainId)!;
+  const contractAddress = contractAddressFor(targetChainId);
+  const contractAddressError = contractAddressErrorFor(targetChainId);
   const numericId = useMemo(() => (isValidAgreementId(agreementId) ? BigInt(agreementId) : undefined), [agreementId]);
   const { address, isConnected, chainId } = useAccount();
-  const publicClient = usePublicClient({ chainId: monadTestnet.id });
+  const publicClient = usePublicClient({ chainId: targetChainId });
   const [presentedHash, setPresentedHash] = useState<Hex>();
   const [fileName, setFileName] = useState("");
   const [formError, setFormError] = useState<string>();
@@ -39,7 +43,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const { data: bytecode, isError: bytecodeError, isLoading: isCheckingBytecode, refetch: refetchBytecode } = useBytecode({
     address: contractAddress,
-    chainId: monadTestnet.id,
+    chainId: targetChainId,
     query: { enabled: Boolean(contractAddress), retry: 1 },
   });
   const hasContract = Boolean(bytecode && bytecode !== "0x");
@@ -48,17 +52,17 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
     abi: exactDraftAbi,
     functionName: "getAgreement",
     args: numericId ? [numericId] : undefined,
-    chainId: monadTestnet.id,
+    chainId: targetChainId,
     query: { enabled: Boolean(contractAddress && hasContract && numericId), refetchInterval: 15_000 },
   });
   const agreement = normalizeAgreement(data);
   const status = agreement ? statusLabel(agreement.status) : undefined;
-  const isWrongNetwork = isConnected && chainId !== monadTestnet.id;
+  const isWrongNetwork = isConnected && chainId !== targetChainId;
   const isCounterparty = Boolean(address && agreement && agreement.counterparty.toLowerCase() === address.toLowerCase());
   const isExactMatch = Boolean(presentedHash && agreement && presentedHash.toLowerCase() === agreement.fileHash.toLowerCase());
   const { writeContractAsync, isPending } = useWriteContract();
   const [submittedHash, setSubmittedHash] = useState<Hex>();
-  const receiptState = useTrackedTransaction(submittedHash, monadTestnet.id, contractAddress, "accept");
+  const receiptState = useTrackedTransaction(submittedHash, targetChainId, contractAddress, "accept");
   const { data: receipt, isLoading: isConfirming } = receiptState;
   const transactionHash = receiptState.transactionHash;
   const isConfirmed = receipt?.status === "success";
@@ -89,8 +93,8 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
   async function handleAccept() {
     setFormError(undefined);
     if (!isConnected || !address) return setFormError("Connect the counterparty wallet before accepting.");
-    if (isWrongNetwork) return setFormError("Switch your wallet to Monad testnet before accepting.");
-    if (!contractAddress || !numericId || !publicClient || !hasContract) return setFormError("ExactDraft contract code could not be verified on Monad testnet.");
+    if (isWrongNetwork) return setFormError(`Switch your wallet to ${network.label} before accepting.`);
+    if (!contractAddress || !numericId || !publicClient || !hasContract) return setFormError(`ExactDraft contract code could not be verified on ${network.label}.`);
     if (!agreement || status !== "pending") return setFormError("This agreement is no longer pending.");
     if (!isCounterparty) return setFormError("Only the designated counterparty wallet can accept this agreement.");
     if (!presentedHash || !isExactMatch) return setFormError("Select the exact local copy before accepting.");
@@ -101,7 +105,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
       functionName: "acceptAgreement",
       args: [numericId, presentedHash],
       account: address,
-      chainId: monadTestnet.id,
+      chainId: targetChainId,
     } as const;
     setIsSimulating(true);
     try {
@@ -130,7 +134,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
     <main className="min-h-screen">
       <SiteHeader />
       <div className="mx-auto max-w-7xl px-5 pb-20 pt-8 lg:px-8">
-        <NetworkNotice />
+        <NetworkNotice targetChainId={targetChainId} />
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-[#cfd9d0] pb-6">
           <div>
             <p className="mono-label text-[10px] font-bold text-[#68736d]">Agreement record / #{agreementId}</p>
@@ -140,18 +144,18 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
         </div>
 
         {contractAddressError ? (
-          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">{contractAddressError} Set <code>NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS</code> to a valid deployed address.</div>
+          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">{contractAddressError} Set <code>{network.contractEnvName}</code> to a valid deployed address.</div>
         ) : bytecodeError ? (
-          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">Could not check contract code on Monad testnet. <button type="button" onClick={() => void refetchBytecode()} className="underline underline-offset-4">Retry</button></div>
+          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">Could not check contract code on {network.label}. <button type="button" onClick={() => void refetchBytecode()} className="underline underline-offset-4">Retry</button></div>
         ) : isCheckingBytecode ? (
-          <div role="status" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Checking the configured contract on Monad testnet…</div>
+          <div role="status" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Checking the configured contract on {network.label}…</div>
         ) : !hasContract ? (
-          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">No contract is deployed at the configured address on Monad testnet.</div>
+          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">No contract is deployed at the configured address on {network.label}.</div>
         ) : isLoading && !readTimedOut ? (
-          <div role="status" aria-live="polite" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Reading the agreement from Monad…</div>
+          <div role="status" aria-live="polite" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Reading the agreement from {network.chain.name}…</div>
         ) : readFailed || !agreement ? (
           <div role="alert" className="paper-card rounded-2xl p-8 text-sm text-[#8c302c]">
-            <p>{isAgreementNotFoundError(readError) ? `No agreement #${agreementId} exists at this contract on Monad testnet.` : readTimedOut ? "Monad did not respond in time. The RPC read timed out." : `Could not read agreement #${agreementId} from Monad testnet. Check the RPC connection and retry.`}</p>
+            <p>{isAgreementNotFoundError(readError) ? `No agreement #${agreementId} exists at this contract on ${network.label}.` : readTimedOut ? `${network.chain.name} did not respond in time. The RPC read timed out.` : `Could not read agreement #${agreementId} from ${network.label}. Check the RPC connection and retry.`}</p>
             <button type="button" onClick={() => { setReadTimedOut(false); void refetch(); }} className="mt-5 rounded-full bg-[#173d35] px-4 py-2 text-xs font-bold text-white hover:bg-[#28594d]">Retry read</button>
           </div>
         ) : (
@@ -183,18 +187,18 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
                   {isConnected && !isCounterparty ? <p className="rounded-xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#775014]">Connected wallet {formatWallet(address)} is not the designated counterparty.</p> : null}
                   {status !== "pending" ? <p className="rounded-xl bg-[#edf1eb] px-4 py-3 text-xs font-semibold text-[#52625a]">This agreement is {status} and cannot be accepted again.</p> : null}
                   <button type="button" onClick={handleAccept} disabled={!isExactMatch || !isCounterparty || !isConnected || isWrongNetwork || status !== "pending" || isSimulating || isPending || isConfirming || receiptUnresolved || isConfirmed} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-40">
-                    {isSimulating ? "Checking agreement…" : isPending ? "Confirm in wallet…" : isConfirming || receiptUnresolved ? "Waiting for Monad…" : "Attest exact match"}
+                    {isSimulating ? "Checking agreement…" : isPending ? "Confirm in wallet…" : isConfirming || receiptUnresolved ? `Waiting for ${network.chain.name}…` : "Attest exact match"}
                   </button>
-                  {isWrongNetwork ? <p className="text-center text-xs font-semibold text-[#8c302c]">Wrong network — switch to Monad testnet first.</p> : null}
+                  {isWrongNetwork ? <p className="text-center text-xs font-semibold text-[#8c302c]">Wrong network — switch to {network.label} first.</p> : null}
                   <p role="status" aria-live="polite" className="min-h-5 text-center text-xs text-[#b83f39]">{transactionError}</p>
-                  {receiptState.error && receiptState.trackedHash ? <div className="text-center text-xs"><button type="button" onClick={() => void receiptState.refetch()} className="font-semibold underline underline-offset-4">Retry confirmation check</button> <TransactionNotice hash={transactionHash} label="Open pending transaction" /></div> : null}
-                  {isConfirmed && !hasAcceptanceEvent ? <div role="alert" className="text-center text-xs text-[#775014]">The transaction has no matching ExactDraft acknowledgement event. <TransactionNotice hash={transactionHash} label="Inspect transaction" /></div> : null}
+                  {receiptState.error && receiptState.trackedHash ? <div className="text-center text-xs"><button type="button" onClick={() => void receiptState.refetch()} className="font-semibold underline underline-offset-4">Retry confirmation check</button> <TransactionNotice hash={transactionHash} chainId={targetChainId} label="Open pending transaction" /></div> : null}
+                  {isConfirmed && !hasAcceptanceEvent ? <div role="alert" className="text-center text-xs text-[#775014]">The transaction has no matching ExactDraft acknowledgement event. <TransactionNotice hash={transactionHash} chainId={targetChainId} label="Inspect transaction" /></div> : null}
                 </div>
 
-                {acknowledgementConfirmed && transactionHash ? <div className="mt-4 rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]"><p className="font-bold">Your attestation is confirmed on Monad.</p><TransactionNotice hash={transactionHash} label="Open acceptance transaction" /></div> : null}
+                {acknowledgementConfirmed && transactionHash ? <div className="mt-4 rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]"><p className="font-bold">Your attestation is confirmed on {network.chain.name}.</p><TransactionNotice hash={transactionHash} chainId={targetChainId} label="Open acceptance transaction" /></div> : null}
               </section>
 
-              <RecordCard agreement={agreement} status={status ?? "pending"} />
+              <RecordCard agreement={agreement} status={status ?? "pending"} chainId={targetChainId} />
             </div>
             <p className="mt-8 text-center text-xs leading-5 text-[#68736d]">The digest, wallet addresses, reference, and timestamps are public onchain and may reveal a match to a known document. ExactDraft records wallet acknowledgements; it does not verify identity, authority, possession, or reading, and is not an electronic-signature service or legal advice.</p>
           </>
@@ -204,7 +208,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
   );
 }
 
-function RecordCard({ agreement, status }: { agreement: NonNullable<ReturnType<typeof normalizeAgreement>>; status: ReturnType<typeof statusLabel> }) {
+function RecordCard({ agreement, status, chainId }: { agreement: NonNullable<ReturnType<typeof normalizeAgreement>>; status: ReturnType<typeof statusLabel>; chainId: number }) {
   return (
     <section className="paper-card rounded-2xl p-6 sm:p-8" aria-labelledby="record-heading">
       <p className="mono-label text-[10px] font-bold text-[#68736d]">Final verification record</p>
@@ -212,8 +216,8 @@ function RecordCard({ agreement, status }: { agreement: NonNullable<ReturnType<t
       <dl className="mt-8 divide-y divide-[#e1e6e0]">
         <RecordRow label="Reference" value={agreement.reference} />
         <RecordRow label="Status" value={<StatusBadge status={status} />} />
-        <RecordRow label="Proposer" value={<a href={explorerAddressUrl(agreement.proposer)} target="_blank" rel="noreferrer" className="font-mono text-xs underline underline-offset-4">{formatWallet(agreement.proposer)} ↗</a>} />
-        <RecordRow label="Counterparty" value={<a href={explorerAddressUrl(agreement.counterparty)} target="_blank" rel="noreferrer" className="font-mono text-xs underline underline-offset-4">{formatWallet(agreement.counterparty)} ↗</a>} />
+        <RecordRow label="Proposer" value={<a href={explorerAddressUrl(agreement.proposer, chainId)} target="_blank" rel="noreferrer" className="font-mono text-xs underline underline-offset-4">{formatWallet(agreement.proposer)} ↗</a>} />
+        <RecordRow label="Counterparty" value={<a href={explorerAddressUrl(agreement.counterparty, chainId)} target="_blank" rel="noreferrer" className="font-mono text-xs underline underline-offset-4">{formatWallet(agreement.counterparty)} ↗</a>} />
         <RecordRow label="SHA-256 / bytes32" value={<span className="break-all font-mono text-xs">{agreement.fileHash}</span>} />
         <RecordRow label="Created" value={timestamp(agreement.createdAt)} />
         <RecordRow label="Expires" value={timestamp(agreement.expiresAt)} />
