@@ -37,8 +37,10 @@
     "@next/swc-darwin-arm64": "^16.4.2"
   },
   "overrides": {
-    "viem@2.23.2": {
-      "ws": "^8.22.0"
+    "@walletconnect/utils": {
+      "viem": {
+        "ws": "^8.22.0"
+      }
     }
   }
 }

@@ -355,7 +355,7 @@ Keep private correspondence and contact details out of public implementation art
 - `node --test tests/*.test.mjs`: 18 passed.
 - `npm run lint`: passed with Next.js 16 flat config and current React rules.
 - `npx tsc --noEmit --incremental false`: passed.
-- `npm audit --audit-level=moderate`: 26 findings (5 high, 21 moderate, 0 critical), confined at high severity to dev-only Next ESLint dependencies. `npm audit --omit=dev`: 21 moderate, 0 high, 0 critical. A scoped override removes the production `ws` high finding; no force-major upgrades were applied.
+- `npm audit --audit-level=moderate`: 26 findings (5 high, 21 moderate, 0 critical), confined at high severity to dev-only Next ESLint dependencies. `npm audit --omit=dev`: 21 moderate, 0 high, 0 critical. A scoped override removes the production `ws` high finding; no force-major upgrades were applied. The first override form failed hosted clean-install CI (`39311196831`) because npm treated the peer `viem` package as overridden. The override is now scoped beneath `@walletconnect/utils`; a clean `npm ci` and all local checks pass with that form, and hosted CI for the corrected lockfile is pending.
 - `npx next build --webpack`: passed; static and dynamic app routes compiled. `npm run build` uses Turbopack and remains unverified locally because the sandbox blocks its process/socket setup; hosted CI is the validation gate.
 - `npm run test:contract`: 9 passed, including 256-run fuzz checks. Foundry emitted a harmless warning that its global signature cache could not be written in the sandbox.
 - `git diff --check`: passed.
