@@ -96,6 +96,8 @@ Local File B ──SHA-256 in browser──┘                              │
 
 `contracts/src/ExactDraft.sol` stores proposer, designated counterparty, file digest, reference, timestamps, and status. Agreement IDs are one-based. `getAgreement` computes an `Expired` read status when a pending record reaches its deadline; no backend job is needed. The contract accepts only when the caller is the designated counterparty and the presented hash matches exactly. Accepted, cancelled, and expired records cannot be accepted again.
 
+Source revisions also reject proposer cancellation at or after expiry. The already deployed Monad testnet contract is immutable and retains the behavior it was deployed with; this source change only applies to future deployments. No contract redeployment is implied by the source change.
+
 The Next.js client uses `crypto.subtle.digest("SHA-256", ...)` and the current application flow does not send a `File`, `Blob`, or file bytes to a route, API, storage service, or contract. `src/lib/contract.ts` contains the frontend ABI and the real deployment address is supplied only by environment configuration. File names remain in the page's local UI state to label the selected digest and are not written onchain.
 
 ## Contract interface

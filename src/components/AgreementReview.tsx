@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Hex } from "viem";
-import { useAccount, useChainId, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useAccount, useBytecode, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { LocalFileHash } from "@/src/components/LocalFileHash";
 import { NetworkNotice } from "@/src/components/NetworkNotice";
 import { SiteHeader } from "@/src/components/SiteHeader";
 import { StatusBadge } from "@/src/components/StatusBadge";
 import { TransactionNotice } from "@/src/components/TransactionNotice";
-import { contractAddress, exactDraftAbi, normalizeAgreement, statusLabel } from "@/src/lib/contract";
+import { contractAddress, contractAddressError, exactDraftAbi, isValidAgreementId, normalizeAgreement, statusLabel } from "@/src/lib/contract";
+import { isAgreementNotFoundError } from "@/src/lib/contract-core.mjs";
 import { formatHash, formatWallet } from "@/src/lib/hash";
 import { explorerAddressUrl, monadTestnet } from "@/src/lib/monad";
+import { useTrackedTransaction } from "@/src/lib/useTrackedTransaction";
+import { findContractEvent, submitSimulatedTransaction } from "@/src/lib/transaction-core.mjs";
 
 function timestamp(value: bigint) {
   return value === 0n ? "—" : new Date(Number(value) * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -20,35 +23,52 @@ function timestamp(value: bigint) {
 function errorMessage(error: Error | null | undefined) {
   if (!error) return undefined;
   if (error.message.toLowerCase().includes("user rejected")) return "The wallet rejected this transaction.";
-  return error.message.replace(/^Error: /, "");
+  if (/insufficient funds/i.test(error.message)) return "The wallet does not have enough MON for this transaction.";
+  if (/revert|contract function/i.test(error.message)) return "The contract rejected this acknowledgement. Check the agreement status, wallet and file match.";
+  return "Could not complete the transaction. Check your wallet network and connection, then try again.";
 }
 
 export function AgreementReview({ agreementId }: { agreementId: string }) {
-  const numericId = useMemo(() => (/^[1-9]\d*$/.test(agreementId) ? BigInt(agreementId) : undefined), [agreementId]);
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const numericId = useMemo(() => (isValidAgreementId(agreementId) ? BigInt(agreementId) : undefined), [agreementId]);
+  const { address, isConnected, chainId } = useAccount();
+  const publicClient = usePublicClient({ chainId: monadTestnet.id });
   const [presentedHash, setPresentedHash] = useState<Hex>();
   const [fileName, setFileName] = useState("");
   const [formError, setFormError] = useState<string>();
   const [readTimedOut, setReadTimedOut] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const { data: bytecode, isError: bytecodeError, isLoading: isCheckingBytecode, refetch: refetchBytecode } = useBytecode({
+    address: contractAddress,
+    chainId: monadTestnet.id,
+    query: { enabled: Boolean(contractAddress), retry: 1 },
+  });
+  const hasContract = Boolean(bytecode && bytecode !== "0x");
   const { data, isLoading, isError: readFailed, error: readError, refetch } = useReadContract({
     address: contractAddress,
     abi: exactDraftAbi,
     functionName: "getAgreement",
     args: numericId ? [numericId] : undefined,
-    query: { enabled: Boolean(contractAddress && numericId), refetchInterval: 15_000 },
+    chainId: monadTestnet.id,
+    query: { enabled: Boolean(contractAddress && hasContract && numericId), refetchInterval: 15_000 },
   });
   const agreement = normalizeAgreement(data);
   const status = agreement ? statusLabel(agreement.status) : undefined;
   const isWrongNetwork = isConnected && chainId !== monadTestnet.id;
   const isCounterparty = Boolean(address && agreement && agreement.counterparty.toLowerCase() === address.toLowerCase());
   const isExactMatch = Boolean(presentedHash && agreement && presentedHash.toLowerCase() === agreement.fileHash.toLowerCase());
-  const { writeContract, data: transactionHash, error: writeError, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed, error: receiptError } = useWaitForTransactionReceipt({ hash: transactionHash, query: { enabled: Boolean(transactionHash) } });
+  const { writeContractAsync, isPending } = useWriteContract();
+  const [submittedHash, setSubmittedHash] = useState<Hex>();
+  const receiptState = useTrackedTransaction(submittedHash, monadTestnet.id, contractAddress, "accept");
+  const { data: receipt, isLoading: isConfirming } = receiptState;
+  const transactionHash = receiptState.transactionHash;
+  const isConfirmed = receipt?.status === "success";
+  const receiptUnresolved = Boolean(receiptState.trackedHash && !receipt && receiptState.replacement?.reason !== "cancelled");
+  const hasAcceptanceEvent = Boolean(findContractEvent(receipt, exactDraftAbi, contractAddress, "AgreementAccepted", numericId));
+  const acknowledgementConfirmed = isConfirmed && hasAcceptanceEvent;
 
   useEffect(() => {
-    if (isConfirmed) refetch();
-  }, [isConfirmed, refetch]);
+    if (acknowledgementConfirmed) refetch();
+  }, [acknowledgementConfirmed, refetch]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -66,19 +86,45 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
     setFormError(undefined);
   }
 
-  function handleAccept() {
+  async function handleAccept() {
     setFormError(undefined);
     if (!isConnected || !address) return setFormError("Connect the counterparty wallet before accepting.");
     if (isWrongNetwork) return setFormError("Switch your wallet to Monad testnet before accepting.");
-    if (!contractAddress || !numericId) return setFormError("This agreement is not ready to accept.");
+    if (!contractAddress || !numericId || !publicClient || !hasContract) return setFormError("ExactDraft contract code could not be verified on Monad testnet.");
     if (!agreement || status !== "pending") return setFormError("This agreement is no longer pending.");
     if (!isCounterparty) return setFormError("Only the designated counterparty wallet can accept this agreement.");
     if (!presentedHash || !isExactMatch) return setFormError("Select the exact local copy before accepting.");
 
-    writeContract({ address: contractAddress, abi: exactDraftAbi, functionName: "acceptAgreement", args: [numericId, presentedHash] });
+    const request = {
+      address: contractAddress,
+      abi: exactDraftAbi,
+      functionName: "acceptAgreement",
+      args: [numericId, presentedHash],
+      account: address,
+      chainId: monadTestnet.id,
+    } as const;
+    setIsSimulating(true);
+    try {
+      const hash = await submitSimulatedTransaction(publicClient, writeContractAsync, request);
+      setSubmittedHash(undefined);
+      setSubmittedHash(hash);
+    } catch (error) {
+      setFormError(errorMessage(error instanceof Error ? error : undefined) ?? "Could not simulate or submit this transaction.");
+    } finally {
+      setIsSimulating(false);
+    }
   }
 
-  const transactionError = errorMessage(writeError) ?? errorMessage(receiptError) ?? formError;
+  const receiptError = receipt?.status === "reverted"
+    ? "The transaction was mined but reverted. The acknowledgement was not recorded."
+    : receiptState.error
+      ? errorMessage(receiptState.error)
+      : receiptState.replacement?.reason === "cancelled"
+        ? "The pending transaction was replaced by a cancellation."
+        : undefined;
+  const transactionError = formError ?? receiptError ?? (isConfirmed && !hasAcceptanceEvent
+    ? "Transaction confirmed without an ExactDraft acknowledgement event. Open the transaction to inspect it."
+    : undefined);
 
   return (
     <main className="min-h-screen">
@@ -93,14 +139,19 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
           <Link href="/" className="text-sm font-bold text-[#205c3b] underline decoration-[#9fc9aa] underline-offset-4">← Create another agreement</Link>
         </div>
 
-        {!contractAddress ? (
-          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">This app is not connected to a deployed ExactDraft contract yet. Set <code>NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS</code> after deployment.</div>
+        {contractAddressError ? (
+          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">{contractAddressError} Set <code>NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS</code> to a valid deployed address.</div>
+        ) : bytecodeError ? (
+          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">Could not check contract code on Monad testnet. <button type="button" onClick={() => void refetchBytecode()} className="underline underline-offset-4">Retry</button></div>
+        ) : isCheckingBytecode ? (
+          <div role="status" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Checking the configured contract on Monad testnet…</div>
+        ) : !hasContract ? (
+          <div role="alert" className="paper-card rounded-2xl p-6 text-sm text-[#8c302c]">No contract is deployed at the configured address on Monad testnet.</div>
         ) : isLoading && !readTimedOut ? (
           <div role="status" aria-live="polite" className="paper-card rounded-2xl p-8 text-sm text-[#68736d]">Reading the agreement from Monad…</div>
         ) : readFailed || !agreement ? (
           <div role="alert" className="paper-card rounded-2xl p-8 text-sm text-[#8c302c]">
-            <p>Could not read agreement #{agreementId} from Monad.</p>
-            <p className="mt-2">{readTimedOut ? "Monad did not respond in time. Check the agreement ID, network, and contract configuration." : readError?.message ?? "Check the ID, network, and contract configuration."}</p>
+            <p>{isAgreementNotFoundError(readError) ? `No agreement #${agreementId} exists at this contract on Monad testnet.` : readTimedOut ? "Monad did not respond in time. The RPC read timed out." : `Could not read agreement #${agreementId} from Monad testnet. Check the RPC connection and retry.`}</p>
             <button type="button" onClick={() => { setReadTimedOut(false); void refetch(); }} className="mt-5 rounded-full bg-[#173d35] px-4 py-2 text-xs font-bold text-white hover:bg-[#28594d]">Retry read</button>
           </div>
         ) : (
@@ -109,7 +160,7 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
               <section className="paper-card rounded-2xl p-6 sm:p-8" aria-labelledby="match-heading">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="mono-label text-[10px] font-bold text-[#68736d]">Private file check</p>
+                    <p className="mono-label text-[10px] font-bold text-[#68736d]">Local file comparison</p>
                     <h2 id="match-heading" className="display-font mt-2 text-4xl text-[#173d35]">Does your file match?</h2>
                   </div>
                   <StatusBadge status={status ?? "pending"} />
@@ -131,14 +182,16 @@ export function AgreementReview({ agreementId }: { agreementId: string }) {
                   {!isConnected ? <p className="rounded-xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#775014]">Connect the designated counterparty wallet to accept.</p> : null}
                   {isConnected && !isCounterparty ? <p className="rounded-xl bg-[#fff5dc] px-4 py-3 text-xs font-semibold text-[#775014]">Connected wallet {formatWallet(address)} is not the designated counterparty.</p> : null}
                   {status !== "pending" ? <p className="rounded-xl bg-[#edf1eb] px-4 py-3 text-xs font-semibold text-[#52625a]">This agreement is {status} and cannot be accepted again.</p> : null}
-                  <button type="button" onClick={handleAccept} disabled={!isExactMatch || !isCounterparty || !isConnected || isWrongNetwork || status !== "pending" || isPending || isConfirming} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-40">
-                    {isPending ? "Confirm in wallet…" : isConfirming ? "Waiting for Monad…" : "Attest exact match"}
+                  <button type="button" onClick={handleAccept} disabled={!isExactMatch || !isCounterparty || !isConnected || isWrongNetwork || status !== "pending" || isSimulating || isPending || isConfirming || receiptUnresolved || isConfirmed} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-40">
+                    {isSimulating ? "Checking agreement…" : isPending ? "Confirm in wallet…" : isConfirming || receiptUnresolved ? "Waiting for Monad…" : "Attest exact match"}
                   </button>
                   {isWrongNetwork ? <p className="text-center text-xs font-semibold text-[#8c302c]">Wrong network — switch to Monad testnet first.</p> : null}
                   <p role="status" aria-live="polite" className="min-h-5 text-center text-xs text-[#b83f39]">{transactionError}</p>
+                  {receiptState.error && receiptState.trackedHash ? <div className="text-center text-xs"><button type="button" onClick={() => void receiptState.refetch()} className="font-semibold underline underline-offset-4">Retry confirmation check</button> <TransactionNotice hash={transactionHash} label="Open pending transaction" /></div> : null}
+                  {isConfirmed && !hasAcceptanceEvent ? <div role="alert" className="text-center text-xs text-[#775014]">The transaction has no matching ExactDraft acknowledgement event. <TransactionNotice hash={transactionHash} label="Inspect transaction" /></div> : null}
                 </div>
 
-                {isConfirmed && transactionHash ? <div className="mt-4 rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]"><p className="font-bold">Your attestation is confirmed on Monad.</p><TransactionNotice hash={transactionHash} label="Open acceptance transaction" /></div> : null}
+                {acknowledgementConfirmed && transactionHash ? <div className="mt-4 rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]"><p className="font-bold">Your attestation is confirmed on Monad.</p><TransactionNotice hash={transactionHash} label="Open acceptance transaction" /></div> : null}
               </section>
 
               <RecordCard agreement={agreement} status={status ?? "pending"} />

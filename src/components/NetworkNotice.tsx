@@ -1,11 +1,10 @@
 "use client";
 
-import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useSwitchChain } from "wagmi";
 import { monadTestnet } from "@/src/lib/monad";
 
 export function NetworkNotice() {
-  const { isConnected } = useAccount();
-  const chainId = useChainId();
+  const { isConnected, chainId } = useAccount();
   const { switchChain, isPending, error } = useSwitchChain();
 
   if (!isConnected || chainId === monadTestnet.id) return null;

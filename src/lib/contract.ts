@@ -1,8 +1,17 @@
 import type { Address } from "viem";
+import { isValidAgreementIdCore, parseContractAddress } from "./contract-core.mjs";
 
-export const contractAddress = process.env.NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS as
-  | Address
-  | undefined;
+const configured = parseContractAddress(process.env.NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS);
+
+export const contractAddress: Address | undefined = configured.address;
+
+export const contractAddressError = configured.issue === "missing"
+  ? "Contract address is not configured."
+  : configured.issue === "invalid"
+    ? "Configured contract address is invalid or is the zero address."
+    : undefined;
+
+export const hasConfiguredContractAddress = Boolean(contractAddress);
 
 export const exactDraftAbi = [
   {
@@ -136,9 +145,11 @@ export function statusLabel(status: number | bigint): AgreementStatus {
 
 export function requireContractAddress(): Address {
   if (!contractAddress) {
-    throw new Error(
-      "ExactDraft is not configured yet. Deploy the contract and set NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS.",
-    );
+    throw new Error(`${contractAddressError} Deploy ExactDraft and set NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS.`);
   }
   return contractAddress;
+}
+
+export function isValidAgreementId(value: string): boolean {
+  return isValidAgreementIdCore(value);
 }

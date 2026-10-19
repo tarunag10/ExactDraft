@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { decodeEventLog, isAddress, type Hex } from "viem";
-import { useAccount, useChainId, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { isAddress, type Hex } from "viem";
+import { useAccount, useBytecode, usePublicClient, useWriteContract } from "wagmi";
 import { LocalFileHash } from "@/src/components/LocalFileHash";
 import { TransactionNotice } from "@/src/components/TransactionNotice";
-import { contractAddress, exactDraftAbi } from "@/src/lib/contract";
+import { contractAddress, contractAddressError, exactDraftAbi } from "@/src/lib/contract";
 import { formatHash, isValidReference } from "@/src/lib/hash";
 import { monadTestnet } from "@/src/lib/monad";
+import { useTrackedTransaction } from "@/src/lib/useTrackedTransaction";
+import { findContractEvent, submitSimulatedTransaction } from "@/src/lib/transaction-core.mjs";
 
 function initialExpiry() {
   const date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -18,12 +20,13 @@ function initialExpiry() {
 function errorMessage(error: Error | null | undefined) {
   if (!error) return undefined;
   if (error.message.toLowerCase().includes("user rejected")) return "The wallet rejected this transaction.";
-  return error.message.replace(/^Error: /, "");
+  if (/insufficient funds/i.test(error.message)) return "The wallet does not have enough MON for this transaction.";
+  if (/revert|contract function/i.test(error.message)) return "The contract rejected these details. Check the wallet, reference, expiry and agreement rules.";
+  return "Could not complete the transaction. Check your wallet network and connection, then try again.";
 }
 
 export function CreateAgreementForm() {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  const { address, isConnected, chainId } = useAccount();
   const [fileName, setFileName] = useState("");
   const [fileHash, setFileHash] = useState<Hex>();
   const [counterparty, setCounterparty] = useState("");
@@ -31,30 +34,33 @@ export function CreateAgreementForm() {
   const [expiresAt, setExpiresAt] = useState(initialExpiry);
   const [formError, setFormError] = useState<string>();
   const [agreementId, setAgreementId] = useState<string>();
-  const { writeContract, data: transactionHash, error: writeError, isPending } = useWriteContract();
-  const { data: receipt, isLoading: isConfirming, isSuccess: isConfirmed, error: receiptError } = useWaitForTransactionReceipt({
-    hash: transactionHash,
-    query: { enabled: Boolean(transactionHash) },
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [creationEventMissing, setCreationEventMissing] = useState(false);
+  const publicClient = usePublicClient({ chainId: monadTestnet.id });
+  const { data: bytecode, isError: bytecodeError, isLoading: isCheckingBytecode, refetch: refetchBytecode } = useBytecode({
+    address: contractAddress,
+    chainId: monadTestnet.id,
+    query: { enabled: Boolean(contractAddress), retry: 1 },
   });
+  const hasContract = Boolean(bytecode && bytecode !== "0x");
+  const isWrongNetwork = isConnected && chainId !== monadTestnet.id;
+  const { writeContractAsync, isPending } = useWriteContract();
+  const [submittedHash, setSubmittedHash] = useState<Hex>();
+  const receiptState = useTrackedTransaction(submittedHash, monadTestnet.id, contractAddress, "create");
+  const { data: receipt, isLoading: isConfirming } = receiptState;
+  const transactionHash = receiptState.transactionHash;
+  const receiptUnresolved = Boolean(receiptState.trackedHash && !receipt && receiptState.replacement?.reason !== "cancelled");
+  const isWaiting = isSimulating || isPending || isConfirming || receiptUnresolved;
 
   useEffect(() => {
     if (!receipt) return;
-    for (const log of receipt.logs) {
-      try {
-        const decoded = decodeEventLog({ abi: exactDraftAbi, data: log.data, topics: log.topics });
-        if (decoded.eventName === "AgreementCreated") {
-          setAgreementId(String((decoded.args as { agreementId: bigint }).agreementId));
-          break;
-        }
-      } catch {
-        // Logs from other contracts in the receipt are expected to be undecodable with this ABI.
-      }
-    }
+    const event = findContractEvent(receipt, exactDraftAbi, contractAddress, "AgreementCreated");
+    if (event) setAgreementId(String(event.args.agreementId));
+    if (receipt.status === "success") setCreationEventMissing(!event);
   }, [receipt]);
 
   const expiryTimestamp = useMemo(() => Math.floor(new Date(expiresAt).getTime() / 1000), [expiresAt]);
-  const isWrongNetwork = isConnected && chainId !== monadTestnet.id;
-  const isReady = Boolean(fileHash && counterparty && reference.trim() && expiresAt);
+  const isReady = Boolean(fileHash && counterparty && isValidReference(reference) && expiresAt && hasContract);
 
   function handleFile(hash: Hex | undefined, name: string) {
     setFileHash(hash);
@@ -62,28 +68,50 @@ export function CreateAgreementForm() {
     setFormError(undefined);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(undefined);
     setAgreementId(undefined);
+    setCreationEventMissing(false);
     if (!isConnected || !address) return setFormError("Connect the proposer wallet before creating an agreement.");
     if (isWrongNetwork) return setFormError("Switch your wallet to Monad testnet before creating an agreement.");
-    if (!contractAddress) return setFormError("The contract address is not configured. Deploy ExactDraft and set NEXT_PUBLIC_EXACTDRAFT_CONTRACT_ADDRESS.");
+    if (!contractAddress) return setFormError(contractAddressError ?? "ExactDraft contract configuration is invalid.");
+    if (!hasContract || !publicClient) return setFormError("ExactDraft contract code could not be verified on Monad testnet.");
     if (!fileHash) return setFormError("Select a local document so its SHA-256 digest can be calculated.");
     if (!isAddress(counterparty)) return setFormError("Enter a valid Ethereum wallet address for the counterparty.");
     if (counterparty.toLowerCase() === address.toLowerCase()) return setFormError("The counterparty must be a different wallet.");
     if (!isValidReference(reference)) return setFormError("Enter a reference of 1–140 UTF-8 bytes. This reference is public; use an opaque code, not a client or document name.");
     if (!Number.isSafeInteger(expiryTimestamp) || expiryTimestamp <= Math.floor(Date.now() / 1000)) return setFormError("Choose an expiry time in the future.");
 
-    writeContract({
+    const request = {
       address: contractAddress,
       abi: exactDraftAbi,
       functionName: "createAgreement",
       args: [fileHash, counterparty, reference.trim(), BigInt(expiryTimestamp)],
-    });
+      account: address,
+      chainId: monadTestnet.id,
+    } as const;
+    setIsSimulating(true);
+    try {
+      const hash = await submitSimulatedTransaction(publicClient, writeContractAsync, request);
+      setSubmittedHash(undefined);
+      setSubmittedHash(hash);
+    } catch (error) {
+      setFormError(errorMessage(error instanceof Error ? error : undefined) ?? "Could not simulate or submit this transaction.");
+    } finally {
+      setIsSimulating(false);
+    }
   }
 
-  const transactionError = errorMessage(writeError) ?? errorMessage(receiptError) ?? formError;
+  const receiptError = receipt?.status === "reverted"
+    ? "The transaction was mined but reverted. No agreement was created."
+    : receiptState.error
+      ? errorMessage(receiptState.error)
+      : receiptState.replacement?.reason === "cancelled"
+        ? "The pending transaction was replaced by a cancellation."
+        : undefined;
+  const transactionError = formError ?? receiptError;
+  const isConfirmed = receipt?.status === "success" && Boolean(agreementId) && !creationEventMissing;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" aria-describedby="create-form-status">
@@ -117,14 +145,18 @@ export function CreateAgreementForm() {
         The chain publicly records the digest, wallet addresses, reference, and timestamps. This app does not upload the selected file. A public digest may reveal a match if someone already knows or can guess the document.
       </div>
 
-      <button type="submit" disabled={isPending || isConfirming || !isReady || isWrongNetwork || !isConnected} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-45">
-        {isPending ? "Confirm in wallet…" : isConfirming ? "Waiting for Monad…" : "Create onchain agreement"}
+      <button type="submit" disabled={isWaiting || creationEventMissing || !isReady || !isConnected || isWrongNetwork} className="w-full rounded-xl bg-[#173d35] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#28594d] disabled:cursor-not-allowed disabled:opacity-45">
+        {isSimulating ? "Checking agreement…" : isPending ? "Confirm in wallet…" : isConfirming || receiptUnresolved ? "Waiting for Monad…" : "Create onchain agreement"}
       </button>
 
       {!isConnected ? <p className="text-center text-xs font-semibold text-[#775014]">Connect the proposer wallet to continue.</p> : null}
       {isWrongNetwork ? <p className="text-center text-xs font-semibold text-[#8c302c]">Wrong network — switch to Monad testnet first.</p> : null}
-      {!contractAddress ? <p className="text-center text-xs font-semibold text-[#8c302c]">Contract address missing from environment configuration.</p> : null}
+      {contractAddressError ? <p className="text-center text-xs font-semibold text-[#8c302c]">{contractAddressError}</p> : null}
+      {contractAddress && isCheckingBytecode ? <p className="text-center text-xs text-[#68736d]">Checking the configured contract on Monad testnet…</p> : null}
+      {contractAddress && bytecodeError ? <p className="text-center text-xs font-semibold text-[#8c302c]">Could not verify the contract code on Monad testnet. <button type="button" onClick={() => void refetchBytecode()} className="underline underline-offset-4">Retry</button></p> : null}
+      {contractAddress && !isCheckingBytecode && !bytecodeError && !hasContract ? <p className="text-center text-xs font-semibold text-[#8c302c]">No contract is deployed at the configured address on Monad testnet.</p> : null}
       <p id="create-form-status" role="status" aria-live="polite" className="min-h-5 text-center text-xs text-[#b83f39]">{transactionError}</p>
+      {receiptState.error && receiptState.trackedHash ? <div className="text-center text-xs"><button type="button" onClick={() => void receiptState.refetch()} className="font-semibold underline underline-offset-4">Retry confirmation check</button> <TransactionNotice hash={transactionHash} label="Open pending transaction" /></div> : null}
 
       {isConfirmed && transactionHash ? (
         <div className="rounded-xl border border-[#b9d9bf] bg-[#f1fbf2] p-4 text-sm text-[#205c3b]">
@@ -134,6 +166,7 @@ export function CreateAgreementForm() {
           {agreementId ? <a href={`/agreement/${agreementId}`} className="ml-4 font-bold underline underline-offset-4">Open review record</a> : null}
         </div>
       ) : null}
+      {creationEventMissing ? <p role="alert" className="rounded-xl bg-[#fff5dc] p-4 text-sm text-[#775014]">Transaction confirmed, but no ExactDraft creation event was found. No review link was generated. <TransactionNotice hash={transactionHash} label="Inspect transaction" /></p> : null}
     </form>
   );
 }

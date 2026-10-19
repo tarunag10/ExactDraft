@@ -1,6 +1,6 @@
 # ExactDraft implementation plan
 
-Status: planned; implementation not started. Updated: 2026-10-19.
+Status: Phases 1–2 complete; Phase 3 not started. Updated: 2026-10-19.
 
 ## Objective and authorization
 
@@ -9,7 +9,8 @@ privacy-conscious document comparison and acknowledgement pilot, with BOT Chain
 as an additional network. Correctness and privacy come before network expansion.
 
 Phase 1 implementation was explicitly authorized by Tarun on 2026-10-19 and is
-complete as recorded below. Do not begin Phase 2 until Tarun asks to proceed.
+complete as recorded below. Phase 2 was explicitly authorized on 2026-10-19 and
+is complete. Do not begin Phase 3 until Tarun asks to proceed.
 No partner messages, funding application or use of real client documents is
 authorized by this plan. Future mainnet deployment needs explicit authorization.
 
@@ -127,6 +128,8 @@ ExactDraft.sol and ExactDraft.t.sol.
 - Decide and document whether expired pending records may be cancelled: current
   reads report Expired but cancellation can still change stored state. Align
   contract/UI behavior and test the chosen policy before any new deployment.
+  This phase chooses expiry as terminal: future deployments reject late
+  cancellation; the already deployed Monad testnet bytecode remains unchanged.
 - Keep the non-upgradeable contract unless review identifies a concrete need.
 
 ### Acceptance criteria
@@ -138,16 +141,25 @@ ExactDraft.sol and ExactDraft.t.sol.
 - Invalid configuration, absent bytecode and out-of-range IDs cannot reach a
   write. A missing ID and an unavailable RPC produce distinguishable states.
 - Expiry boundary and cancellation semantics are explicit and consistent.
+  Expiry is terminal at block.timestamp >= expiresAt; the old immutable Monad
+  testnet deployment retains its prior cancellation behavior until separately
+  redeployed.
 
 ### Tests and evidence
 
-- Mocked read/write/receipt paths for rejection, revert, replacement, timeout,
-  wrong chain, account switch, absent code and unrelated receipt logs.
+- Unit tests verify missing/malformed/zero address rejection, uint256 route
+  bounds, missing-record versus RPC error classification, simulation-before-
+  write behavior, matching success-event filtering, and chain/contract/operation
+  scoped pending-receipt keys.
 - Contract tests for zero/self counterparty, empty/oversized reference, zero
   hash, past/equal expiry, missing IDs, both role restrictions and terminal-state
   replay; test expiry immediately before/at/after deadline and chosen cancellation
   policy. Add focused fuzz checks for permissions and terminal transitions.
-- Browser refresh recovery and RPC retry check; ESLint, typecheck, build and forge.
+- Browser smoke checks confirmed a valid missing ID is distinguished from
+  invalid IDs (404), RPC/code-check failure exposes Retry, and a connected
+  chain-1 wallet displays the wrong-network warning while creation remains
+  disabled. `npm run test:phase2`, `npm run test:phase1`, `npm run lint`,
+  `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` passed.
 
 ## Phase 3 — BOT Chain testnet support alongside Monad
 
@@ -311,7 +323,7 @@ meet ecosystem reward thresholds.
 | --- | --- | --- |
 | Plan | Written | Commit `6d1363a` pushed to `origin/main`; working tree was clean. |
 | 1 Correctness/privacy | Complete | Commit/push recorded in Git history; `npm run test:phase1`, `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` passed. Browser checks exercised out-of-order hash completion, clear, 25 MB rejection, disabled submit during hashing, pending-hash unmount, accessible file label/error, and no file marker in resource URLs. |
-| 2 Transaction/configuration | Not started | Depends on Phase 1 |
+| 2 Transaction/configuration | Complete | `npm run test:phase2` (6 tests), `npm run test:phase1` (3 tests), `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` (8 tests, including 256-run fuzz checks) passed. Browser smoke checks verified invalid-ID 404, missing-record classification, RPC retry, and chain-1 wallet warning with submit disabled. Future contract source rejects cancellation at/after expiry; existing immutable Monad testnet code is unchanged. |
 | 3 BOT testnet | Not started | Depends on Phases 1–2 and network verification |
 | 4 User workflow | Not started | Depends on testnet validation |
 | 5 Release preparation | Not started | Independent/external gates remain open |

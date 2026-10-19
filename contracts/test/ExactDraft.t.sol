@@ -85,6 +85,84 @@ contract ExactDraftTest {
         exactDraft.acceptAgreement(expiredId, fileHash);
     }
 
+    function testExpiryBoundaryIsInclusiveAndExpiredAgreementsCannotBeCancelled() public {
+        vm.prank(proposer);
+        uint256 agreementId = exactDraft.createAgreement(fileHash, counterparty, "expiry-boundary", 1_000_100);
+
+        vm.warp(1_000_099);
+        ExactDraft.Agreement memory beforeExpiry = exactDraft.getAgreement(agreementId);
+        require(beforeExpiry.status == ExactDraft.Status.Pending, "record should be pending before expiry");
+
+        vm.warp(1_000_100);
+        ExactDraft.Agreement memory atExpiry = exactDraft.getAgreement(agreementId);
+        require(atExpiry.status == ExactDraft.Status.Expired, "record should expire at the deadline");
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementExpired.selector));
+        exactDraft.cancelAgreement(agreementId);
+
+        vm.warp(1_000_101);
+        ExactDraft.Agreement memory afterExpiry = exactDraft.getAgreement(agreementId);
+        require(afterExpiry.status == ExactDraft.Status.Expired, "record should remain expired after deadline");
+    }
+
+    function testInvalidCreationArgumentsAndMissingAgreementIdsRevert() public {
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.EmptyFileHash.selector));
+        exactDraft.createAgreement(bytes32(0), counterparty, "reference", 1_000_100);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.InvalidCounterparty.selector));
+        exactDraft.createAgreement(fileHash, address(0), "reference", 1_000_100);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.InvalidCounterparty.selector));
+        exactDraft.createAgreement(fileHash, proposer, "reference", 1_000_100);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.EmptyReference.selector));
+        exactDraft.createAgreement(fileHash, counterparty, "", 1_000_100);
+
+        string memory longReference = string(new bytes(141));
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.ReferenceTooLong.selector));
+        exactDraft.createAgreement(fileHash, counterparty, longReference, 1_000_100);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.ExpirationMustBeInFuture.selector));
+        exactDraft.createAgreement(fileHash, counterparty, "reference", 1_000_000);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.ExpirationMustBeInFuture.selector));
+        exactDraft.createAgreement(fileHash, counterparty, "reference", 999_999);
+
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementNotFound.selector));
+        exactDraft.getAgreement(0);
+
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementNotFound.selector));
+        exactDraft.getAgreement(1);
+
+        vm.prank(proposer);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementNotFound.selector));
+        exactDraft.cancelAgreement(2);
+    }
+
+    function testFuzz_onlyDesignatedCounterpartyCanAccept(address caller) public {
+        if (caller == counterparty) return;
+
+        vm.prank(proposer);
+        uint256 agreementId = exactDraft.createAgreement(fileHash, counterparty, "fuzz-permission", 1_001_000);
+
+        vm.prank(caller);
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.NotCounterparty.selector));
+        exactDraft.acceptAgreement(agreementId, fileHash);
+    }
+
+    function testFuzz_uncreatedAgreementIdsAlwaysRevert(uint256 agreementId) public {
+        vm.expectRevert(abi.encodeWithSelector(ExactDraft.AgreementNotFound.selector));
+        exactDraft.getAgreement(agreementId);
+    }
+
     function testOnlyProposerCanCancelAndInvalidInputsRevert() public {
         vm.prank(proposer);
         vm.expectRevert(abi.encodeWithSelector(ExactDraft.EmptyFileHash.selector));

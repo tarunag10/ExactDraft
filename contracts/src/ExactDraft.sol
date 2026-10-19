@@ -120,6 +120,7 @@ contract ExactDraft {
         Agreement storage agreement = _agreement(agreementId);
         if (msg.sender != agreement.proposer) revert NotProposer();
         if (agreement.status != Status.Pending) revert AgreementNotPending();
+        if (block.timestamp >= agreement.expiresAt) revert AgreementExpired();
 
         agreement.status = Status.Cancelled;
         emit AgreementCancelled(agreementId, msg.sender, uint64(block.timestamp));
