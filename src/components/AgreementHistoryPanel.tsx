@@ -51,7 +51,20 @@ function participantLabel(role: AgreementHistoryRole, account: Address, proposer
   return proposer?.toLowerCase() === account.toLowerCase() ? "You proposed this agreement" : "You are the counterparty";
 }
 
-export function AgreementHistoryPanel({ deploymentBlock: deploymentBlockOverride }: { deploymentBlock?: bigint | number | string }) {
+export function AgreementHistoryPanel({ deploymentBlock }: { deploymentBlock?: bigint | number | string }) {
+  const { address: account, chainId } = useAccount();
+  const activeChainId = chainId ?? monadTestnet.id;
+  const network = getNetworkConfig(activeChainId);
+  const contractAddress = network ? contractAddressFor(activeChainId) : undefined;
+  const effectiveDeploymentBlock = parseDeploymentBlock(
+    deploymentBlock ?? (network as DeploymentBlockNetwork | undefined)?.deploymentBlock,
+  );
+  const identity = `${account?.toLowerCase() ?? ""}:${activeChainId}:${contractAddress ?? ""}:${effectiveDeploymentBlock?.toString() ?? ""}`;
+
+  return <AgreementHistoryPanelContent key={identity} deploymentBlock={deploymentBlock} />;
+}
+
+function AgreementHistoryPanelContent({ deploymentBlock: deploymentBlockOverride }: { deploymentBlock?: bigint | number | string }) {
   const { address: account, chainId } = useAccount();
   const activeChainId = chainId ?? monadTestnet.id;
   const network = getNetworkConfig(activeChainId);
@@ -82,14 +95,9 @@ export function AgreementHistoryPanel({ deploymentBlock: deploymentBlockOverride
             ? `The ${network.label} public RPC client is unavailable. Retry after the network connection is restored.`
             : undefined;
 
-  useEffect(() => {
+  useEffect(() => () => {
     requestId.current += 1;
-    setEntries([]);
-    setOldestScannedBlock(undefined);
-    setVisibleCount(ROW_PAGE_SIZE);
-    setError(undefined);
-    setIsLoading(false);
-  }, [account, activeChainId, contractAddress, role]);
+  }, []);
 
   const loadRange = useCallback(async (fromBlock: bigint, toBlock: bigint) => {
     if (!client || !contractAddress || !account || !network || !createdEvent) return [];
@@ -179,7 +187,7 @@ export function AgreementHistoryPanel({ deploymentBlock: deploymentBlockOverride
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="history-role" className="sr-only">Filter agreement role</label>
-          <select id="history-role" value={role} onChange={(event) => { setRole(event.target.value as AgreementHistoryRole); setEntries([]); setOldestScannedBlock(undefined); setError(undefined); }} disabled={isLoading} className="rounded-full border border-[#cbd5cc] bg-white px-3 py-2 text-xs font-semibold text-[#173d35]">
+          <select id="history-role" value={role} onChange={(event) => { requestId.current += 1; setRole(event.target.value as AgreementHistoryRole); setEntries([]); setOldestScannedBlock(undefined); setVisibleCount(ROW_PAGE_SIZE); setError(undefined); setIsLoading(false); }} disabled={isLoading} className="rounded-full border border-[#cbd5cc] bg-white px-3 py-2 text-xs font-semibold text-[#173d35]">
             <option value="participant">All my agreements</option>
             <option value="proposer">I proposed</option>
             <option value="counterparty">I received</option>

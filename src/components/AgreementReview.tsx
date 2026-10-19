@@ -42,7 +42,7 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   const [fileName, setFileName] = useState("");
   const [formError, setFormError] = useState<string>();
   const [cancelFormError, setCancelFormError] = useState<string>();
-  const [readTimedOut, setReadTimedOut] = useState(false);
+  const [timedOutQueryKey, setTimedOutQueryKey] = useState<string>();
   const [isSimulating, setIsSimulating] = useState(false);
   const { data: bytecode, isError: bytecodeError, isLoading: isCheckingBytecode, refetch: refetchBytecode } = useBytecode({
     address: contractAddress,
@@ -58,6 +58,8 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
     chainId: targetChainId,
     query: { enabled: Boolean(contractAddress && hasContract && numericId), refetchInterval: 15_000 },
   });
+  const readQueryKey = `${targetChainId}:${contractAddress ?? ""}:${numericId?.toString() ?? ""}`;
+  const readTimedOut = timedOutQueryKey === readQueryKey;
   const agreement = normalizeAgreement(data);
   const status = agreement ? statusLabel(agreement.status) : undefined;
   const isWrongNetwork = isConnected && chainId !== targetChainId;
@@ -93,14 +95,11 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
   }, [cancellationConfirmed, refetch]);
 
   useEffect(() => {
-    if (!isLoading) {
-      setReadTimedOut(false);
-      return;
-    }
+    if (!isLoading) return;
 
-    const timeout = window.setTimeout(() => setReadTimedOut(true), 12_000);
+    const timeout = window.setTimeout(() => setTimedOutQueryKey(readQueryKey), 12_000);
     return () => window.clearTimeout(timeout);
-  }, [isLoading]);
+  }, [isLoading, readQueryKey]);
 
   function handleFile(hash: Hex | undefined, name: string) {
     setPresentedHash(hash);
@@ -258,7 +257,7 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
         ) : readFailed || !agreement ? (
           <div role="alert" className="paper-card rounded-2xl p-8 text-sm text-[#8c302c]">
             <p>{isAgreementNotFoundError(readError) ? `No agreement #${agreementId} exists at this contract on ${network.label}.` : readTimedOut ? `${network.chain.name} did not respond in time. The RPC read timed out.` : `Could not read agreement #${agreementId} from ${network.label}. Check the RPC connection and retry.`}</p>
-            <button type="button" onClick={() => { setReadTimedOut(false); void refetch(); }} className="mt-5 rounded-full bg-[#173d35] px-4 py-2 text-xs font-bold text-white hover:bg-[#28594d]">Retry read</button>
+            <button type="button" onClick={() => { setTimedOutQueryKey(undefined); void refetch(); }} className="mt-5 rounded-full bg-[#173d35] px-4 py-2 text-xs font-bold text-white hover:bg-[#28594d]">Retry read</button>
           </div>
         ) : (
           <>

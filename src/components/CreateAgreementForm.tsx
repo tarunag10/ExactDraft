@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { isAddress, type Address, type Hex } from "viem";
 import { useAccount, useBytecode, usePublicClient, useWriteContract } from "wagmi";
 import { LocalFileHash } from "@/src/components/LocalFileHash";
@@ -41,9 +41,7 @@ export function CreateAgreementForm() {
   const [formError, setFormError] = useState<string>();
   const [reviewLinkStatus, setReviewLinkStatus] = useState("");
   const [reviewLinkFallback, setReviewLinkFallback] = useState("");
-  const [agreementId, setAgreementId] = useState<string>();
   const [isSimulating, setIsSimulating] = useState(false);
-  const [creationEventMissing, setCreationEventMissing] = useState(false);
   const publicClient = usePublicClient({ chainId: activeChainId });
   const { data: bytecode, isError: bytecodeError, isLoading: isCheckingBytecode, refetch: refetchBytecode } = useBytecode({
     address: contractAddress,
@@ -57,17 +55,13 @@ export function CreateAgreementForm() {
   const receiptState = useTrackedTransaction(submittedTx?.hash, submittedTx?.chainId ?? activeChainId, submittedTx?.address ?? contractAddress, "create");
   const { data: receipt, isLoading: isConfirming } = receiptState;
   const transactionHash = receiptState.transactionHash;
+  const creationEvent = findContractEvent(receipt, exactDraftAbi, submittedTx?.address ?? contractAddress, "AgreementCreated");
+  const agreementId = creationEvent ? String(creationEvent.args.agreementId) : undefined;
+  const creationEventMissing = receipt?.status === "success" && !creationEvent;
   const createdChainId = submittedTx?.chainId ?? activeChainId;
   const createdNetwork = getNetworkConfig(createdChainId) ?? activeNetwork;
   const receiptUnresolved = Boolean(receiptState.trackedHash && !receipt && receiptState.replacement?.reason !== "cancelled");
   const isWaiting = isSimulating || isPending || isConfirming || receiptUnresolved;
-
-  useEffect(() => {
-    if (!receipt) return;
-    const event = findContractEvent(receipt, exactDraftAbi, submittedTx?.address ?? contractAddress, "AgreementCreated");
-    if (event) setAgreementId(String(event.args.agreementId));
-    if (receipt.status === "success") setCreationEventMissing(!event);
-  }, [receipt, submittedTx?.address, contractAddress]);
 
   const expiryTimestamp = useMemo(() => Math.floor(new Date(expiresAt).getTime() / 1000), [expiresAt]);
   const isCounterpartyValid = isAddress(counterparty) && counterparty.toLowerCase() !== address?.toLowerCase();
@@ -81,11 +75,10 @@ export function CreateAgreementForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSubmittedTx(undefined);
     setFormError(undefined);
-    setAgreementId(undefined);
     setReviewLinkStatus("");
     setReviewLinkFallback("");
-    setCreationEventMissing(false);
     if (!isConnected || !address) return setFormError("Connect the proposer wallet before creating an agreement.");
     if (isWrongNetwork) return setFormError("Switch your wallet to Monad or BOT Chain testnet before creating an agreement.");
     if (!contractAddress) return setFormError(contractAddressError ?? "ExactDraft contract configuration is invalid.");
@@ -108,7 +101,6 @@ export function CreateAgreementForm() {
     setIsSimulating(true);
     try {
       const hash = await submitSimulatedTransaction(publicClient, writeContractAsync, request);
-      setSubmittedTx(undefined);
       setSubmittedTx({ hash, chainId: activeChainId, address: contractAddress });
     } catch (error) {
       setFormError(errorMessage(error instanceof Error ? error : undefined) ?? "Could not simulate or submit this transaction.");
