@@ -19,7 +19,7 @@
     "next": "^16.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "viem": "^2.23.2",
+    "viem": "^2.55.4",
     "wagmi": "^2.14.11"
   },
   "devDependencies": {
@@ -35,5 +35,10 @@
   },
   "optionalDependencies": {
     "@next/swc-darwin-arm64": "^16.4.2"
+  },
+  "overrides": {
+    "viem@2.23.2": {
+      "ws": "^8.22.0"
+    }
   }
 }
