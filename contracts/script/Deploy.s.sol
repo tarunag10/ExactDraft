@@ -15,11 +15,14 @@ contract Deploy {
 
     function run() external returns (ExactDraft deployed) {
         uint256 expectedChainId = vm.envUint("EXACTDRAFT_DEPLOY_CHAIN_ID");
-        require(expectedChainId == 968 || expectedChainId == 10143, "testnet chain ID required");
-        require(block.chainid == expectedChainId, "RPC chain ID mismatch");
+        require(isAllowedTestnet(expectedChainId, block.chainid), "testnet chain ID mismatch");
         uint256 deployerPrivateKey = vm.envUint("EXACTDRAFT_DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
         deployed = new ExactDraft();
         vm.stopBroadcast();
+    }
+
+    function isAllowedTestnet(uint256 expectedChainId, uint256 actualChainId) public pure returns (bool) {
+        return actualChainId == expectedChainId && (expectedChainId == 968 || expectedChainId == 10143);
     }
 }

@@ -1,20 +1,21 @@
 import { defineChain, type Chain } from "viem";
+import { NETWORKS } from "./network-core.mjs";
 
 export const monadTestnet = defineChain({
-  id: 10143,
-  name: "Monad Testnet",
-  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
-  rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz"] } },
-  blockExplorers: { default: { name: "MonadVision", url: "https://testnet.monadvision.com" } },
+  id: NETWORKS.monad.id,
+  name: NETWORKS.monad.name,
+  nativeCurrency: { name: NETWORKS.monad.symbol, symbol: NETWORKS.monad.symbol, decimals: 18 },
+  rpcUrls: { default: { http: [NETWORKS.monad.rpcUrl] } },
+  blockExplorers: { default: { name: "MonadVision", url: NETWORKS.monad.explorerUrl } },
   testnet: true,
 });
 
 export const botTestnet = defineChain({
-  id: 968,
-  name: "BOT Chain Testnet",
-  nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.bohr.life"] } },
-  blockExplorers: { default: { name: "BOTScan", url: "https://scan.bohr.life" } },
+  id: NETWORKS.bot.id,
+  name: NETWORKS.bot.name,
+  nativeCurrency: { name: NETWORKS.bot.symbol, symbol: NETWORKS.bot.symbol, decimals: 18 },
+  rpcUrls: { default: { http: [NETWORKS.bot.rpcUrl] } },
+  blockExplorers: { default: { name: "BOTScan", url: NETWORKS.bot.explorerUrl } },
   testnet: true,
 });
 

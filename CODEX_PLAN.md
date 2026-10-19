@@ -173,6 +173,13 @@ network notices, routes, deployment script, package scripts and .env.example.
   finality expectations, RPC limits and contract verification instructions with
   current documentation and technical contacts. Published settings at assessment:
   BOT testnet 968; mainnet 677. Treat these as values to verify, not assumptions.
+  Official BOT docs list BOT testnet as 968, Test BOT, `https://rpc.bohr.life`,
+  and `https://scan.bohr.life/`; they describe Geth-compatible JSON-RPC and list
+  Foundry. The live RPC returned `0x3c8` for `eth_chainId`. BOTScan exposes a
+  “Verify & publish contract” form. BOT docs describe fast finality within two
+  blocks when the validator threshold is met; ExactDraft reports receipt
+  inclusion as confirmed, not finalized. Compiler/source verification remains
+  pending an actual deployment.
 - Use a small shared configuration for chain, RPC, explorer, contract address and
   deployment block. Retain Monad configuration; do not build a generic plugin system.
 - Namespace records, caches and shared URLs by chain and contract. Preserve old
@@ -324,7 +331,7 @@ meet ecosystem reward thresholds.
 | Plan | Written | Commit `6d1363a` pushed to `origin/main`; working tree was clean. |
 | 1 Correctness/privacy | Complete | Commit/push recorded in Git history; `npm run test:phase1`, `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` passed. Browser checks exercised out-of-order hash completion, clear, 25 MB rejection, disabled submit during hashing, pending-hash unmount, accessible file label/error, and no file marker in resource URLs. |
 | 2 Transaction/configuration | Complete | `npm run test:phase2` (6 tests), `npm run test:phase1` (3 tests), `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run test:contract` (8 tests, including 256-run fuzz checks) passed. Browser smoke checks verified invalid-ID 404, missing-record classification, RPC retry, and chain-1 wallet warning with submit disabled. Future contract source rejects cancellation at/after expiry; existing immutable Monad testnet code is unchanged. |
-| 3 BOT testnet | In progress | Added BOT chain/provider, per-network RPC/explorer/address configuration, chain-scoped review routes and receipt/explorer links, and deploy chain-ID guards (only 968/10143). Official BOT docs list chain ID 968, RPC `https://rpc.bohr.life`, native token BOT, explorer `https://scan.bohr.life`; live `eth_chainId` returned `0x3c8`. `npm run test:phase3` (2 tests), typecheck, lint, production build, Foundry build, Phase 1/2 tests and 8 contract tests passed. Browser smoke confirmed BOT selection, scoped `/bot/agreement/1`, and missing-address fail-closed state. Deployment and two-wallet walkthrough remain blocked because `EXACTDRAFT_DEPLOYER_PRIVATE_KEY` and `EXACTDRAFT_DEPLOY_RPC_URL` are absent locally. |
+| 3 BOT testnet | In progress | Added BOT chain/provider, per-network RPC/explorer/address configuration, chain-scoped review routes and receipt/explorer links, and deploy chain-ID guards (only 968/10143). Official settings and live RPC identity verified; explorer verification UI located. `npm run test:phase3` (3 tests), typecheck, lint, production build, Foundry build, Phase 1/2 tests and 9 contract/deploy tests passed. Browser smoke confirmed BOT selection, scoped `/bot/agreement/1`, legacy Monad routing, and missing-address fail-closed state. Deployment, source verification and two-wallet walkthrough remain blocked because `EXACTDRAFT_DEPLOYER_PRIVATE_KEY` and `EXACTDRAFT_DEPLOY_RPC_URL` are absent locally. |
 | 4 User workflow | Not started | Depends on testnet validation |
 | 5 Release preparation | Not started | Independent/external gates remain open |
 | 6 Mainnet pilot | Not authorized | Requires explicit deployment authorization |

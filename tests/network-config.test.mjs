@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agreementPath } from "../src/lib/network-core.mjs";
+import { agreementPath, NETWORKS } from "../src/lib/network-core.mjs";
+
+test("configured testnet metadata matches the selected official endpoints", () => {
+  assert.deepEqual(NETWORKS.bot, {
+    id: 968,
+    name: "BOT Chain Testnet",
+    symbol: "BOT",
+    rpcUrl: "https://rpc.bohr.life",
+    explorerUrl: "https://scan.bohr.life",
+  });
+  assert.equal(NETWORKS.monad.id, 10143);
+});
 
 test("Monad shared links keep their legacy route while BOT links are chain-scoped", () => {
   assert.equal(agreementPath("monad", "12"), "/agreement/12");
