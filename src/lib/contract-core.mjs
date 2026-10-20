@@ -18,6 +18,10 @@ export function isValidAgreementIdCore(value) {
   }
 }
 
+export function isFutureExpiryTimestamp(expirySeconds, nowSeconds = Math.floor(Date.now() / 1000)) {
+  return Number.isSafeInteger(expirySeconds) && Number.isSafeInteger(nowSeconds) && expirySeconds > nowSeconds;
+}
+
 export function pendingTransactionKey(chainId, address, operation, agreementId) {
   const scope = operation === "create" ? "" : `:${agreementId}`;
   return `exactdraft:pending:${chainId}:${address.toLowerCase()}:${operation}${scope}`;

@@ -6,6 +6,7 @@ import { useAccount, useBytecode, usePublicClient, useWriteContract } from "wagm
 import { LocalFileHash } from "@/src/components/LocalFileHash";
 import { TransactionNotice } from "@/src/components/TransactionNotice";
 import { contractAddressErrorFor, contractAddressFor, exactDraftAbi } from "@/src/lib/contract";
+import { isFutureExpiryTimestamp } from "@/src/lib/contract-core.mjs";
 import { formatHash, isValidReference } from "@/src/lib/hash";
 import { getNetworkConfig, monadTestnet } from "@/src/lib/networks";
 import { agreementPath } from "@/src/lib/network-core.mjs";
@@ -64,8 +65,9 @@ export function CreateAgreementForm() {
   const isWaiting = isSimulating || isPending || isConfirming || receiptUnresolved;
 
   const expiryTimestamp = useMemo(() => Math.floor(new Date(expiresAt).getTime() / 1000), [expiresAt]);
+  const expiryIsFuture = isFutureExpiryTimestamp(expiryTimestamp);
   const isCounterpartyValid = isAddress(counterparty) && counterparty.toLowerCase() !== address?.toLowerCase();
-  const isReady = Boolean(fileHash && isCounterpartyValid && counterpartyConfirmed && isValidReference(reference) && expiresAt && hasContract);
+  const isReady = Boolean(fileHash && isCounterpartyValid && counterpartyConfirmed && isValidReference(reference) && expiryIsFuture && hasContract);
 
   function handleFile(hash: Hex | undefined, name: string) {
     setFileHash(hash);
@@ -88,7 +90,7 @@ export function CreateAgreementForm() {
     if (counterparty.toLowerCase() === address.toLowerCase()) return setFormError("The counterparty must be a different wallet.");
     if (!counterpartyConfirmed) return setFormError("Verify the counterparty address with them through a separate trusted channel before creating the agreement.");
     if (!isValidReference(reference)) return setFormError("Enter a reference of 1–140 UTF-8 bytes. This reference is public; use an opaque code, not a client or document name.");
-    if (!Number.isSafeInteger(expiryTimestamp) || expiryTimestamp <= Math.floor(Date.now() / 1000)) return setFormError("Choose an expiry time in the future.");
+    if (!isFutureExpiryTimestamp(expiryTimestamp)) return setFormError("Choose an expiry time in the future, using your browser's local timezone.");
 
     const request = {
       address: contractAddress,
@@ -179,7 +181,9 @@ export function CreateAgreementForm() {
         </label>
         <label>
           <span className="mono-label mb-2 block text-[10px] font-bold text-[#68736d]">Expires at</span>
-          <input className="field" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+          <input className="field" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} aria-invalid={!expiryIsFuture} aria-describedby={expiryIsFuture ? "expiry-help" : "expiry-help expiry-error"} />
+          <span id="expiry-help" className="mt-2 block text-xs leading-5 text-[#68736d]">Shown in your browser&apos;s local timezone; stored onchain as a UTC timestamp.</span>
+          {!expiryIsFuture ? <span id="expiry-error" className="mt-1 block text-xs font-semibold text-[#9f4a45]">Choose a time in the future.</span> : null}
         </label>
       </div>
 
