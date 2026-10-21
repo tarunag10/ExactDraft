@@ -252,7 +252,7 @@ export function AgreementReview({ agreementId, targetChainId }: { agreementId: s
 
   return (
     <main className="min-h-screen">
-      <SiteHeader />
+      <SiteHeader targetChainId={targetChainId} />
       <div className="mx-auto max-w-7xl px-5 pb-20 pt-8 lg:px-8">
         <NetworkNotice targetChainId={targetChainId} />
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-[#cfd9d0] pb-6">

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isAgreementNotFoundError, isFutureExpiryTimestamp, isValidAgreementIdCore, parseContractAddress } from "../src/lib/contract-core.mjs";
+import { createContentSecurityPolicy } from "../src/lib/security-policy.mjs";
 
 test("contract configuration rejects missing, malformed and zero addresses", () => {
   assert.deepEqual(parseContractAddress(undefined), { address: undefined, issue: "missing" });
@@ -36,4 +37,14 @@ test("custom missing-record errors are distinguished from RPC failures", () => {
   assert.equal(isAgreementNotFoundError({ name: "ContractFunctionRevertedError", message: "AgreementNotFound()" }), true);
   assert.equal(isAgreementNotFoundError({ message: "execution reverted: 0x9cc59cb9" }), true);
   assert.equal(isAgreementNotFoundError({ name: "HttpRequestError", message: "request timed out" }), false);
+});
+
+test("content security policy scopes inline scripts to the per-request nonce", () => {
+  const policy = createContentSecurityPolicy("c2VjdXJlLW5vbmNl");
+  assert.match(policy, /script-src 'self' 'nonce-c2VjdXJlLW5vbmNl' 'strict-dynamic'/);
+  assert.doesNotMatch(policy, /script-src[^;]*unsafe-inline/);
+  assert.doesNotMatch(policy, /unsafe-eval/);
+  assert.match(policy, /connect-src 'self' https:\/\/testnet-rpc\.monad\.xyz https:\/\/rpc\.bohr\.life/);
+  assert.match(policy, /style-src 'self' 'unsafe-inline'/);
+  assert.match(createContentSecurityPolicy("dev", true), /script-src[^;]*unsafe-eval/);
 });

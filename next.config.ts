@@ -19,8 +19,7 @@ const nextConfig: NextConfig = {
               "object-src 'none'",
               "frame-ancestors 'none'",
               "form-action 'self'",
-              // Next's inline bootstrap currently requires unsafe-inline; move to nonces if server-rendered sensitive content is added.
-              "script-src 'self' 'unsafe-inline'",
+              "script-src 'self'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self' data:",

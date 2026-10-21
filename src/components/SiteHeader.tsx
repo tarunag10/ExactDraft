@@ -7,10 +7,10 @@ import { WalletButton } from "@/src/components/WalletButton";
 import { useAccount } from "wagmi";
 import { getNetworkConfig, monadTestnet } from "@/src/lib/networks";
 
-export function SiteHeader() {
+export function SiteHeader({ targetChainId }: { targetChainId?: number } = {}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { chainId } = useAccount();
-  const activeNetwork = getNetworkConfig(chainId ?? monadTestnet.id) ?? getNetworkConfig(monadTestnet.id)!;
+  const activeNetwork = getNetworkConfig(targetChainId ?? chainId ?? monadTestnet.id) ?? getNetworkConfig(monadTestnet.id)!;
 
   useEffect(() => {
     if (!menuOpen) return;
